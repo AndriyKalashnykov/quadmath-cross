@@ -5,11 +5,9 @@ NEWTAG ?= $(shell bash -c 'read -p "Please provide a new tag (currnet tag - ${CU
 
 default: help
 
-.PHONY: help
 help: ## list makefile targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-10s\033[0m %s\n", $$1, $$2}'
 
-.PHONY: release
 release: ## create and push a new tag
 	$(eval NT=$(NEWTAG))
 	@echo -n "Are you sure to create and push ${NT} tag? [y/N] " && read ans && [ $${ans:-N} = y ]
