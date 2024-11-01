@@ -34,7 +34,7 @@ jobs:
       - name: GitHub Tag Name example
         run: |
           echo "Tag name from GITHUB_REF_NAME: $GITHUB_REF_NAME"
-          make ba ra
+          make ba
 
   docker-image-builder:
 
