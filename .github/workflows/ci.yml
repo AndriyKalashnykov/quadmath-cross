@@ -81,7 +81,7 @@ jobs:
         with:
           images: ghcr.io/${{ env.OWNER_LC }}/quadmath-cross
           flavor: |
-            latest=true
+            latest=false
             suffix=-builder
           tags: |
             type=ref,event=branch
@@ -160,7 +160,7 @@ jobs:
           with:
             images: ghcr.io/${{ env.OWNER_LC }}/quadmath-cross
             flavor: |
-              latest=true
+              latest=false
               suffix=-runtime
             tags: |
               type=ref,event=branch
