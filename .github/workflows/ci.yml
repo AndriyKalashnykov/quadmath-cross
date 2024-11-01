@@ -13,9 +13,27 @@ permissions:
   packages: write
 
 jobs:
+  docker-image-test:
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3
+
+      - name: GitHub Tag Name example
+        run: |
+          echo "Tag name from GITHUB_REF_NAME: $GITHUB_REF_NAME"
+          make ba ra
 
   docker-image-builder:
-
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     name: docker-image-builder
 
@@ -91,7 +109,7 @@ jobs:
         run: echo ${{ steps.docker_builder.outputs.digest }}
 
   docker-image-runtime:
-
+      if: github.ref_type == 'tag'
       runs-on: ubuntu-latest
       name: docker-image-runtime
       needs: [ docker-image-builder ]
