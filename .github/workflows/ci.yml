@@ -56,7 +56,7 @@ jobs:
         with:
           images: ghcr.io/${{ env.OWNER_LC }}/quadmath-cross
           flavor: |
-            latest=false
+            latest=true
             suffix=-builder
           tags: |
             type=ref,event=branch
@@ -133,7 +133,7 @@ jobs:
           with:
             images: ghcr.io/${{ env.OWNER_LC }}/go-face-recognition
             flavor: |
-              latest=false
+              latest=true
               suffix=-runtime
             tags: |
               type=ref,event=branch
