@@ -39,7 +39,7 @@ sd:
 # aarch64
 
 ba:
-	docker build --platform linux/amd64 -f Dockerfile.amd64 -t docker.io/anriykalashnykov/quadmath-cross:v0.0.1-builder .
+	docker build --platform linux/amd64 -f Dockerfile.builder -t docker.io/anriykalashnykov/quadmath-cross:v0.0.1-builder .
 	docker build -f Dockerfile.runtme.local -t docker.io/anriykalashnykov/quadmath-cross:v0.0.1-runtime .
 
 ra:
