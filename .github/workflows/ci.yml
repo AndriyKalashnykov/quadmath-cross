@@ -14,6 +14,10 @@ permissions:
 
 jobs:
   docker-image-test:
+
+    runs-on: ubuntu-latest
+    name: docker-image-builder
+
     steps:
 
       - name: Checkout code
@@ -33,6 +37,7 @@ jobs:
           make ba ra
 
   docker-image-builder:
+
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     name: docker-image-builder
@@ -109,6 +114,7 @@ jobs:
         run: echo ${{ steps.docker_builder.outputs.digest }}
 
   docker-image-runtime:
+
       if: github.ref_type == 'tag'
       runs-on: ubuntu-latest
       name: docker-image-runtime
