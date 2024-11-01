@@ -1,4 +1,5 @@
-FROM docker.io/anriykalashnykov/amd64:latest AS builder
+#FROM docker.io/anriykalashnykov/quadmath-cross:latest-builder AS builder
+FROM ghcr.io/anriykalashnykov/quadmath-cross:latest-builder AS builder
 
 FROM arm64v8/alpine:3.20.3 AS runtime
 
