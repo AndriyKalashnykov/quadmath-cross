@@ -40,7 +40,7 @@ sd:
 
 ba:
 	docker build -f Dockerfile.amd64 -t docker.io/anriykalashnykov/quadmath-cross:latest-builder .
-	docker build -f Dockerfile.arm64 -t docker.io/anriykalashnykov/quadmath-cross:latest-runtime .
+	docker build -f Dockerfile.runtme.local -t docker.io/anriykalashnykov/quadmath-cross:latest-runtime .
 
 ra:
 	docker run -it --rm --platform linux/arm64 docker.io/anriykalashnykov/quadmath-cross:latest-runtime /bin/sh
