@@ -33,14 +33,23 @@ RUN DEBIAN_FRONTEND=${DEBIAN_FRONTEND} apt-get install -y --no-install-recommend
 WORKDIR /app
 
 COPY ./hello.c .
+COPY ./quadmath.c .
 COPY ./quadmath.cpp .
 
 #RUN aarch64-linux-gnu-gcc -static -static-libgcc -std=c++11 hello.c -o hello
-RUN gcc -g -Wall -Wextra -Wunreachable-code -static  hello.c -o hello -lm -llapack -lblas -lpthread -lgfortran -lquadmath
+RUN gcc -g -Wall -Wextra -Wunreachable-code -static hello.c -o hello -lm -llapack -lblas -lpthread -lgfortran -lquadmath
+#RUN x86_64-linux-gnu-gcc quadmath.c -o qmc -Wl,-Bstatic -s -w -extldflags -static -lquadmath
+#RUN gcc -g -Wall -Wextra -Wunreachable-code -static -static-libgcc quadmath.c -o qmc -Wl,-Bstatic -lm -llapack -lblas -lpthread -lgfortran -lquadmath
+
 
 #RUN aarch64-linux-gnu-g++ --std=gnu++20 -I/usr/lib/gcc/x86_64-linux-gnu/12 -I/usr/lib/gcc/x86_64-linux-gnu/12/include -fext-numeric-literals -static -lgfortran -lquadmath quadmath.cpp -o quadmath
-RUN g++ -g -Wall -Wextra -Wunreachable-code -static quadmath.cpp -o qm -lm -llapack -lblas -lpthread -lgfortran -lquadmath
-# RUN g++
+RUN x86_64-linux-gnu-g++ -g -Wall -Wextra -Wunreachable-code -static quadmath.cpp -o qm -lm -llapack -lblas -lpthread -lgfortran -lquadmath
+#ENV PATH=/usr/bin:$PATH
+#ENV CC=aarch64-linux-gnu-gcc
+#ENV CXX=aarch64-linux-gnu-g++
+#ENV PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
+#ENV PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig
+#RUN aarch64-linux-gnu-g++ -g -Wall -Wextra -Wunreachable-code -static quadmath.cpp -o qm -lm -llapack -lblas -lpthread -lgfortran -lquadmath
 
 # arm-none-eabi-gcc -static hello.c -o hello
 # find / -name aarch64-linux-gnu-gcc-10

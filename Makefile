@@ -43,6 +43,7 @@ ba:
 	docker build -f Dockerfile.runtme.local -t docker.io/anriykalashnykov/quadmath-cross:v0.0.1-runtime .
 
 ra:
+	docker run -it --rm --platform linux/amd64 docker.io/anriykalashnykov/quadmath-cross:v0.0.1-builder /bin/sh
 	docker run -it --rm --platform linux/arm64 docker.io/anriykalashnykov/quadmath-cross:v0.0.1-runtime /bin/sh
 
 dt:
