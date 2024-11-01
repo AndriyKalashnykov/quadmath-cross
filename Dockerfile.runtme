@@ -1,4 +1,3 @@
-#FROM docker.io/anriykalashnykov/quadmath-cross:latest-builder AS builder
 FROM ghcr.io/anriykalashnykov/quadmath-cross:latest-builder AS builder
 
 FROM alpine:3.20.3 AS runtime

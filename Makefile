@@ -39,11 +39,11 @@ sd:
 # aarch64
 
 ba:
-	docker build -f Dockerfile.amd64 -t docker.io/anriykalashnykov/quadmath-cross:latest-builder .
-	docker build -f Dockerfile.runtme.local -t docker.io/anriykalashnykov/quadmath-cross:latest-runtime .
+	docker build --platform linux/amd64 -f Dockerfile.amd64 -t docker.io/anriykalashnykov/quadmath-cross:v0.0.1-builder .
+	docker build -f Dockerfile.runtme.local -t docker.io/anriykalashnykov/quadmath-cross:v0.0.1-runtime .
 
 ra:
-	docker run -it --rm --platform linux/arm64 docker.io/anriykalashnykov/quadmath-cross:latest-runtime /bin/sh
+	docker run -it --rm --platform linux/arm64 docker.io/anriykalashnykov/quadmath-cross:v0.0.1-runtime /bin/sh
 
 dt:
 	rm -f version.txt
