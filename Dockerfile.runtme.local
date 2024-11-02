@@ -4,8 +4,10 @@ FROM arm64v8/alpine:3.20.3 AS runtime
 
 WORKDIR /app
 
-COPY --from=builder /app/hello .
-COPY --from=builder /app/qm .
+COPY --from=builder /app/hello-x86_64 .
+COPY --from=builder /app/hello-arm64 .
+#COPY --from=builder /app/qm-x86_64 .
+#COPY --from=builder /app/qm-arm64 .
 
 # Keep the container running
 CMD ["tail", "-f", "/dev/null"]
