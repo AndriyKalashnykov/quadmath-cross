@@ -55,8 +55,10 @@ RUN aarch64-linux-gnu-gcc -I/usr/lib/gcc/x86_64-linux-gnu/14 -I/usr/lib/gcc/x86_
     -Wl,--unresolved-symbols=report-all,--warn-unresolved-symbols,--warn-once,-Bstatic -static-libgcc -g -Wall -Wextra \
     -Wunreachable-code -fext-numeric-literals -s -w -extldflags -static hello.c -o hello-arm64 -lm -lpthread
 
-#RUN x86_64-linux-gnu-gcc quadmath.c -o qmc -Wl,-Bstatic -s -w -extldflags -static -lquadmath
-#RUN gcc -g -Wall -Wextra -Wunreachable-code -static -static-libgcc quadmath.c -o qmc -Wl,-Bstatic -lm -llapack -lblas -lpthread -lgfortran -lquadmath
+RUN x86_64-linux-gnu-g++ -I/usr/lib/gcc/x86_64-linux-gnu/14 -I/usr/lib/gcc/x86_64-linux-gnu/14/include quadmath.cpp -o qm-x86_64 \
+     -static -lm -lpthread -lgfortran -lboost_system -lquadmath
+#RUN gcc -g -Wall -Wextra -Wunreachable-code -static -static-libgcc quadmath.c -o qm-x86_64 -Wl,-Bstatic -lm -lpthread -lgfortran -lquadmath
+#RUN x86_64-linux-gnu-gcc quadmath.c -o qm-x86_64 -static-libgcc -fext-numeric-literals -Wl,-Bstatic -s -w -extldflags -static -lm -lquadmath
 
 #ENV PATH=/usr/bin:$PATH
 #ENV CC=aarch64-linux-gnu-gcc
