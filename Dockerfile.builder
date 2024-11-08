@@ -46,19 +46,24 @@ COPY ./hello.c .
 
 # quadmath c++
 COPY ./quadmath.cpp .
+COPY ./float128_example.cpp .
+
 # quadmath c
 COPY ./quadmath.c .
 
-#RUN aarch64-linux-gnu-gcc -static -static-libgcc -std=c++11 hello.c -o hello
 RUN x86_64-linux-gnu-gcc -g -Wall -Wextra -Wunreachable-code -static hello.c -o hello-x86_64 -lm -llapack -lblas -lpthread -lgfortran -lquadmath
-RUN aarch64-linux-gnu-gcc -I/usr/lib/gcc/x86_64-linux-gnu/14 -I/usr/lib/gcc/x86_64-linux-gnu/14/include \
-    -Wl,--unresolved-symbols=report-all,--warn-unresolved-symbols,--warn-once,-Bstatic -static-libgcc -g -Wall -Wextra \
-    -Wunreachable-code -fext-numeric-literals -s -w -extldflags -static hello.c -o hello-arm64 -lm -lpthread
+RUN aarch64-linux-gnu-gcc -static -static-libgcc -std=c++11 hello.c -o hello-arm64 -I/usr/lib/gcc/x86_64-linux-gnu/14 -I/usr/lib/gcc/x86_64-linux-gnu/14/include \
+    -Wl,--unresolved-symbols=report-all,--warn-unresolved-symbols,--warn-once,-Bstatic -static-libgcc -g -Wall -Wextra -s -w -lm -lpthread
+
 
 RUN x86_64-linux-gnu-g++ -I/usr/lib/gcc/x86_64-linux-gnu/14 -I/usr/lib/gcc/x86_64-linux-gnu/14/include quadmath.cpp -o qm-x86_64 \
      -static -lm -lpthread -lgfortran -lboost_system -lquadmath
 #RUN gcc -g -Wall -Wextra -Wunreachable-code -static -static-libgcc quadmath.c -o qm-x86_64 -Wl,-Bstatic -lm -lpthread -lgfortran -lquadmath
 #RUN x86_64-linux-gnu-gcc quadmath.c -o qm-x86_64 -static-libgcc -fext-numeric-literals -Wl,-Bstatic -s -w -extldflags -static -lm -lquadmath
+
+#-II:\modular-boost\libs\math\include -Ii:\modular-boost
+RUN x86_64-linux-gnu-g++ -Wall -std=c++11 -fexceptions -std=gnu++14 -g -fext-numeric-literals -I/usr/lib/gcc/x86_64-linux-gnu/14/include -c float128_example.cpp -o float128.o
+RUN x86_64-linux-gnu-g++ -o float128-x86_64 float128.o -lquadmath
 
 #ENV PATH=/usr/bin:$PATH
 #ENV CC=aarch64-linux-gnu-gcc
