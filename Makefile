@@ -52,3 +52,23 @@ dt:
 	rm -f version.txt
 	git push --delete origin v0.0.1
 	git tag --delete v0.0.1
+
+# Cross compiling for arm or aarch64 on Debian or Ubuntu
+# https://jensd.be/1126/linux/cross-compiling-for-arm-or-aarch64-on-debian-or-ubuntu
+# wget https://github.com/strace/strace/releases/download/v6.11/strace-6.11.tar.xz
+# tar -xf strace-6.11.tar.xz
+# cd strace-6.11/
+# ./configure --build x86_64-pc-linux-gnu --host aarch64-linux-gnu LDFLAGS="-static -pthread" --enable-mpers=check
+# make
+# 			file strace
+hw:
+	gcc helloworld.c -o helloworld-x86_64
+	file helloworld-x86_64
+	arm-linux-gnueabi-gcc helloworld.c -o helloworld-arm -static
+	file helloworld-arm
+	aarch64-linux-gnu-gcc helloworld.c -o helloworld-aarch64 -static
+	file helloworld-aarch64
+
+
+
+
