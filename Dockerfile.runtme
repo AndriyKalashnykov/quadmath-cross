@@ -1,6 +1,6 @@
 FROM ghcr.io/andriykalashnykov/quadmath-cross:v0.0.1-builder AS builder
 
-FROM alpine:3.21.0 AS runtime
+FROM alpine:3.21.2 AS runtime
 
 WORKDIR /app
 
