@@ -1,4 +1,4 @@
-FROM amd64/gcc:14 AS builder
+FROM amd64/gcc:15 AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 
