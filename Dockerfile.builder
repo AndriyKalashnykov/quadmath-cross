@@ -1,14 +1,11 @@
 #FROM amd64/debian:bookworm AS builder
-FROM amd64/ubuntu:oracular-20250619 AS builder
+FROM amd64/ubuntu:noble-20240904 AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG GCC_VERSION=14
 
 # build-essential
-RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://old-releases.ubuntu.com/ubuntu|g' /etc/apt/sources.list && \
-    sed -i 's|http://security.ubuntu.com/ubuntu|http://old-releases.ubuntu.com/ubuntu|g' /etc/apt/sources.list && \
-    DEBIAN_FRONTEND=${DEBIAN_FRONTEND} apt-get update && \
-    apt-get install -y --no-install-recommends bash curl locales
+RUN DEBIAN_FRONTEND=${DEBIAN_FRONTEND} apt-get update && apt-get install -y --no-install-recommends bash curl locales
 
 RUN dpkg --add-architecture arm64
 RUN dpkg --add-architecture armel
