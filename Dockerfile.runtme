@@ -7,7 +7,7 @@ WORKDIR /app
 COPY --from=builder /app/hello-x86_64 .
 COPY --from=builder /app/hello-arm64 .
 COPY --from=builder /app/qm-x86_64 .
-COPY --from=builder /app/float128-x86_64 .
+#COPY --from=builder /app/float128-x86_64 .
 #COPY --from=builder /app/qm-arm64 .
 
 # Keep the container running
