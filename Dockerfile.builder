@@ -5,7 +5,10 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG GCC_VERSION=14
 
 # build-essential
-RUN DEBIAN_FRONTEND=${DEBIAN_FRONTEND} apt-get update && apt-get install -y --no-install-recommends bash curl locales
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://old-releases.ubuntu.com/ubuntu|g' /etc/apt/sources.list && \
+    sed -i 's|http://security.ubuntu.com/ubuntu|http://old-releases.ubuntu.com/ubuntu|g' /etc/apt/sources.list && \
+    DEBIAN_FRONTEND=${DEBIAN_FRONTEND} apt-get update && \
+    apt-get install -y --no-install-recommends bash curl locales
 
 RUN dpkg --add-architecture arm64
 RUN dpkg --add-architecture armel
