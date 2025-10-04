@@ -33,7 +33,17 @@
   "packageRules": [
     {
       "description": "Automerge major updates",
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "matchDatasources": [
+        "docker",
+        "golang-version"
+      ],
+      "matchPackageNames": [
+        "go",
+        "golang"
+      ],
       "automerge": true,
       "automergeType": "pr",
       "platformAutomerge": true
@@ -42,10 +52,29 @@
       "description": "Automerge non-major updates",
       "matchUpdateTypes": [
         "minor",
-        "patch"
+        "patch",
+        "digest",
+        "pin",
+        "internal",
+        "devDependencies",
+        "ref",
+        "none",
+        "security",
+        "grop",
+        "unpin"
       ],
-      "matchDatasources": ["docker", "golang-version"],
-      "matchPackageNames": ["go", "golang"],
+      "matchDatasources": [
+        "docker",
+        "golang-version",
+        "go"
+      ],
+      "matchPackageNames": [
+        "go",
+        "golang",
+        "ubuntu",
+        "alpine",
+        "gcr.io/distroless/static"
+      ],
       "automerge": true,
       "automergeType": "pr",
       "platformAutomerge": true
@@ -57,10 +86,11 @@
       "rangeStrategy": "bump"
     },
     {
-      "matchManagers": [
-        "github-actions"
-      ],
-      "groupName": "Pipeline dependencies"
+      "description": "Automerge github-actions updates",
+      "matchManagers": ["github-actions"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
     }
   ]
 }
