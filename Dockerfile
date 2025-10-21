@@ -1,4 +1,4 @@
-FROM amd64/gcc:15@sha256:893ef8f3d9ef2e78f79abeae4acc9aa8f72144e6675f4542e70f57048ed3245e AS builder
+FROM amd64/gcc:15@sha256:f3c9393b7d04d207966f99a743d9ae878b4a3c9bc871d582da84b0fc2f070a76 AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 
