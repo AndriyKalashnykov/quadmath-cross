@@ -1,5 +1,5 @@
 #FROM amd64/debian:bookworm AS builder
-FROM amd64/ubuntu:noble-20251013@sha256:8e82b2ef5516aafa350b523585f6bbcda7789be4582986c3139496cd8f4ee78d AS builder
+FROM amd64/ubuntu:noble-20260113@sha256:c8af0e28cf94b1995f4d650e38c07cccf21d1c093168f14cd183720b8a326cd3 AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG GCC_VERSION=14
