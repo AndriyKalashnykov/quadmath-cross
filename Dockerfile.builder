@@ -52,7 +52,7 @@ RUN x86_64-linux-gnu-g++ -I/usr/lib/gcc/x86_64-linux-gnu/${GCC_VERSION} -I/usr/l
 RUN x86_64-linux-gnu-g++ -Wall -std=gnu++14 -fexceptions -fext-numeric-literals \
     -I/usr/lib/gcc/x86_64-linux-gnu/${GCC_VERSION}/include \
     -c float128_example.cpp -o float128.o
-RUN x86_64-linux-gnu-g++ -o float128-x86_64 float128.o -lquadmath
+RUN x86_64-linux-gnu-g++ -static -o float128-x86_64 float128.o -lquadmath
 
 # Keep the container running
 CMD ["tail", "-f", "/dev/null"]
