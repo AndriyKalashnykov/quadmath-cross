@@ -33,54 +33,26 @@ RUN DEBIAN_FRONTEND=${DEBIAN_FRONTEND} apt-get install -y --no-install-recommend
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 60 --slave /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION} && \
     update-alternatives --install /usr/bin/aarch64-linux-gnu-g++ aarch64-linux-gnu-g++ /usr/bin/aarch64-linux-gnu-g++-${GCC_VERSION} 60 && \
     update-alternatives --install /usr/bin/aarch64-linux-gnu-gcc aarch64-linux-gnu-gcc /usr/bin/aarch64-linux-gnu-gcc-${GCC_VERSION} 60
-# libjpeg62-turbo-dev
-
-# /usr/lib/gcc/x86_64-linux-gnu/12/include/quadmath.h
-
-#RUN ln -sf $(which gcc) /usr/local/bin/gcc-aarch64-linux-gnu \
-#    && ln -sf $(which g++) /usr/local/bin/g++-aarch64-linux-gnu
 
 WORKDIR /app
 
 COPY ./hello.c .
-
-# quadmath c++
 COPY ./quadmath.cpp .
 COPY ./float128_example.cpp .
 
-# quadmath c
-COPY ./quadmath.c .
+# Cross-compilation smoke test (x86_64 + arm64)
+RUN x86_64-linux-gnu-gcc -Wall -Wextra -static hello.c -o hello-x86_64
+RUN aarch64-linux-gnu-gcc -Wall -Wextra -static hello.c -o hello-arm64
 
-RUN x86_64-linux-gnu-gcc -g -Wall -Wextra -Wunreachable-code -static hello.c -o hello-x86_64 -lm -llapack -lblas -lpthread -lgfortran -lquadmath
-RUN aarch64-linux-gnu-gcc -static -static-libgcc -std=c++11 hello.c -o hello-arm64 -I/usr/lib/gcc/x86_64-linux-gnu/14 -I/usr/lib/gcc/x86_64-linux-gnu/14/include \
-    -Wl,--unresolved-symbols=report-all,--warn-unresolved-symbols,--warn-once,-Bstatic -static-libgcc -g -Wall -Wextra -s -w -lm -lpthread
+# sqrt(2) via __float128 + libquadmath C API
+RUN x86_64-linux-gnu-g++ -I/usr/lib/gcc/x86_64-linux-gnu/${GCC_VERSION} -I/usr/lib/gcc/x86_64-linux-gnu/${GCC_VERSION}/include \
+    quadmath.cpp -o qm-x86_64 -static -lm -lpthread -lgfortran -lboost_system -lquadmath
 
-
-RUN x86_64-linux-gnu-g++ -I/usr/lib/gcc/x86_64-linux-gnu/14 -I/usr/lib/gcc/x86_64-linux-gnu/14/include quadmath.cpp -o qm-x86_64 \
-     -static -lm -lpthread -lgfortran -lboost_system -lquadmath
-#RUN gcc -g -Wall -Wextra -Wunreachable-code -static -static-libgcc quadmath.c -o qm-x86_64 -Wl,-Bstatic -lm -lpthread -lgfortran -lquadmath
-#RUN x86_64-linux-gnu-gcc quadmath.c -o qm-x86_64 -static-libgcc -fext-numeric-literals -Wl,-Bstatic -s -w -extldflags -static -lm -lquadmath
-
-#-II:\modular-boost\libs\math\include -Ii:\modular-boost
-RUN x86_64-linux-gnu-g++ -Wall -std=c++11 -fexceptions -std=gnu++14 -g -fext-numeric-literals -I/usr/lib/gcc/x86_64-linux-gnu/14/include -c float128_example.cpp -o float128.o
+# Boost multiprecision float128 extended example
+RUN x86_64-linux-gnu-g++ -Wall -std=gnu++14 -fexceptions -fext-numeric-literals \
+    -I/usr/lib/gcc/x86_64-linux-gnu/${GCC_VERSION}/include \
+    -c float128_example.cpp -o float128.o
 RUN x86_64-linux-gnu-g++ -o float128-x86_64 float128.o -lquadmath
-
-#ENV PATH=/usr/bin:$PATH
-#ENV CC=aarch64-linux-gnu-gcc
-#ENV CXX=aarch64-linux-gnu-g++
-#ENV PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
-#ENV PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig
-#RUN aarch64-linux-gnu-gcc --std=gnu++20 -I/usr/lib/gcc/x86_64-linux-gnu/14 -I/usr/lib/gcc/x86_64-linux-gnu/12/include -fext-numeric-literals -static -lgfortran -lquadmath quadmath.cpp -o quadmath
-#RUN aarch64-linux-gnu-gcc-14 -I/usr/lib/gcc/x86_64-linux-gnu/14 -I/usr/lib/gcc/x86_64-linux-gnu/14/include -g -Wall -Wextra -Wunreachable-code -static quadmath.cpp -o qm-aarch64 -lm -llapack -lblas -lpthread -lgfortran -lquadmath
-#RUN aarch64-linux-gnu-g++ -g -Wall -Wextra -Wunreachable-code -static quadmath.cpp -o qm-aarch64  -llapack -lblas -lpthread -lgfortran -lquadmath -lm
-#RUN aarch64-linux-gnu-g++ -Wl,--unresolved-symbols=report-all,--warn-unresolved-symbols,--warn-once,-Bstatic -static-libgcc -g -Wall -Wextra -Wunreachable-code -static quadmath.cpp -o qm-aarch64  -llapack -lblas -lpthread -lgfortran -lquadmath -lm \
-#    $(pkg-config --cflags --libs -statifrec opencv)
-
-# arm-none-eabi-gcc -static hello.c -o hello
-# find / -name aarch64-linux-gnu-gcc-10
-# find / -name 'quadmath*'
-# find / -name 'libquadmath*'
-# find / -name 'pkgconfig'
 
 # Keep the container running
 CMD ["tail", "-f", "/dev/null"]

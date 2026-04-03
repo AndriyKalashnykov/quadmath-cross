@@ -64,7 +64,6 @@ setup-binfmt: deps
 
 #lint: @ Lint all Dockerfiles with hadolint
 lint: deps-hadolint
-	@hadolint Dockerfile
 	@hadolint Dockerfile.builder
 	@hadolint Dockerfile.runtime
 	@hadolint Dockerfile.runtime.local

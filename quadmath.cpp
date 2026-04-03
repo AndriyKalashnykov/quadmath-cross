@@ -15,7 +15,7 @@ int main ()
 	if ((size_t) n < sizeof buf)
 		printf ("%s\n", buf);
 	/* Prints: +1.41421356237309504880e+00 */
-	quadmath_snprintf (buf, sizeof buf, "%Qa", r);
+	n = quadmath_snprintf (buf, sizeof buf, "%Qa", r);
 	if ((size_t) n < sizeof buf)
 		printf ("%s\n", buf);
 	/* Prints: 0x1.6a09e667f3bcc908b2fb1366ea96p+0 */

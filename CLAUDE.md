@@ -43,18 +43,23 @@ make renovate-validate # Validate Renovate configuration
    - `Dockerfile.runtime` pulls builder from `ghcr.io` (used in CI)
    - `Dockerfile.runtime.local` pulls builder from local Docker (used with `make build`)
 
-3. **Simple GCC image** (`Dockerfile`) - gcc:15 based, compiles `hello.cpp` only (no cross-compilation)
+### Source Files
+
+| File | Purpose | Compiled in builder? |
+|------|---------|---------------------|
+| `hello.c` | Cross-compilation smoke test (prints argc/argv) | Yes — x86_64 + arm64 |
+| `quadmath.cpp` | `__float128` arithmetic via GCC libquadmath C API (`sqrtq`, `quadmath_snprintf`) | Yes — x86_64 |
+| `float128_example.cpp` | Boost multiprecision `float128` demo (constants, precision, `constexpr`) — from Boost.Math examples | Yes — x86_64 |
+| `helloworld.c` | Minimal printf — used only by local `make cross-compile`, not by Docker | No |
 
 ### Build Artifacts (produced inside builder)
 
 | Binary | Source | Compiler | Notes |
 |--------|--------|----------|-------|
-| `hello-x86_64` | hello.c | x86_64-linux-gnu-gcc | Static, linked with lapack/blas/gfortran/quadmath |
-| `hello-arm64` | hello.c | aarch64-linux-gnu-gcc | Static cross-compiled |
-| `qm-x86_64` | quadmath.cpp | x86_64-linux-gnu-g++ | Boost multiprecision float128 |
-| `float128-x86_64` | float128_example.cpp | x86_64-linux-gnu-g++ | Boost float128 extended example (built but excluded from runtime image) |
-
-Additional source files (`quadmath.c`, `hello.cpp`) exist in the repo but are not compiled in the builder image. Note: `helloworld.c` (used by the local `make cross-compile` target) is a separate file from `hello.c` (used inside `Dockerfile.builder`).
+| `hello-x86_64` | hello.c | x86_64-linux-gnu-gcc | Static cross-compilation smoke test |
+| `hello-arm64` | hello.c | aarch64-linux-gnu-gcc | Static cross-compiled to arm64 |
+| `qm-x86_64` | quadmath.cpp | x86_64-linux-gnu-g++ | `sqrt(2)` via `__float128` + libquadmath C API |
+| `float128-x86_64` | float128_example.cpp | x86_64-linux-gnu-g++ | Boost multiprecision float128 extended example |
 
 ## CI/CD
 
