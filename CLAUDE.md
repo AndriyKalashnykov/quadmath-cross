@@ -12,9 +12,11 @@ All builds are Docker-based. There is no local compilation pipeline outside of D
 
 ```bash
 make help              # List all targets
+make deps              # Check required system dependencies (docker, git)
 make build             # Build amd64 builder image, then local runtime image (the main build)
 make image-run         # Run arm64 runtime image interactively
 make image-prune       # Docker system prune + buildx prune
+make clean             # Remove build artifacts
 make setup-binfmt      # Setup Docker binfmt for arm64 emulation on x86_64 (one-time)
 make cross-compile     # Cross-compile helloworld.c for x86_64, arm, aarch64 (requires local cross-compilers)
 make lint              # Lint all Dockerfiles with hadolint
@@ -22,6 +24,7 @@ make ci                # Full local CI pipeline (lint + build)
 make ci-run            # Run GitHub Actions workflow locally via act
 make version           # Print current git tag version
 make release           # Interactive: create and push a new git tag
+make tag-delete        # Interactive: delete a tag locally and from origin (destructive)
 make renovate-validate # Validate Renovate configuration
 ```
 
@@ -49,17 +52,19 @@ make renovate-validate # Validate Renovate configuration
 | `hello-x86_64` | hello.c | x86_64-linux-gnu-gcc | Static, linked with lapack/blas/gfortran/quadmath |
 | `hello-arm64` | hello.c | aarch64-linux-gnu-gcc | Static cross-compiled |
 | `qm-x86_64` | quadmath.cpp | x86_64-linux-gnu-g++ | Boost multiprecision float128 |
-| `float128-x86_64` | float128_example.cpp | x86_64-linux-gnu-g++ | Boost float128 extended example |
+| `float128-x86_64` | float128_example.cpp | x86_64-linux-gnu-g++ | Boost float128 extended example (built but excluded from runtime image) |
 
-Additional source files (`quadmath.c`, `hello.cpp`) exist in the repo but are not compiled in the builder image.
+Additional source files (`quadmath.c`, `hello.cpp`) exist in the repo but are not compiled in the builder image. Note: `helloworld.c` (used by the local `make cross-compile` target) is a separate file from `hello.c` (used inside `Dockerfile.builder`).
 
 ## CI/CD
 
 ### Main workflow: `.github/workflows/ci.yml`
 
-- **On push/PR**: `docker-image-test` job runs `make build` to verify the build works
-- **On tag push (v*)**: additionally builds and pushes both builder and runtime images to `ghcr.io/andriykalashnykov/quadmath-cross` with semver tags
-- Runtime image is multi-platform: `linux/arm64,linux/amd64`
+- **On push/PR/workflow_call**: `docker-image-test` job runs `make ci` (lint + build) to verify the build works
+- **On tag push (v*)**: three jobs run in sequence:
+  1. `docker-image-test` — lint and build verification
+  2. `docker-image-builder` — builds and pushes amd64-only builder image to ghcr.io
+  3. `docker-image-runtime` — builds and pushes multi-platform (`linux/arm64,linux/amd64`) runtime image to ghcr.io
 - Uses `secrets.GITHUB_TOKEN` for ghcr.io authentication
 
 ### Cleanup workflow: `.github/workflows/cleanup-runs.yml`
@@ -76,13 +81,8 @@ Additional source files (`quadmath.c`, `hello.cpp`) exist in the repo but are no
 
 ## Upgrade Backlog
 
-Items identified during upgrade analysis (2026-04-03) that are not immediately actionable:
-
-- [x] Add `.dockerignore` to exclude `.git/`, `*.md`, `LICENSE`, `helloworld-*`, `.idea/`, `.vscode/` (done 2026-04-03)
-- [x] Add `.hadolint.yaml` with intentional rule ignores for `DL3008`, `DL3015` (done 2026-04-03)
-- [x] Pin `tonistiigi/binfmt` image in Makefile `setup-binfmt` target to `tonistiigi/binfmt:qemu-v10.2.1` (done 2026-04-03)
-- [ ] `ARG GCC_VERSION=14` in Dockerfile.builder is not tracked by Renovate — manually update when Ubuntu Noble ships GCC 15
-- [x] Pin CI runner to `ubuntu-24.04` instead of `ubuntu-latest` (done 2026-04-03)
+- `ARG GCC_VERSION=14` in Dockerfile.builder is not tracked by Renovate — manually update when Ubuntu Noble ships GCC 15
+- `Dockerfile.runtime` hardcodes `ghcr.io/andriykalashnykov/quadmath-cross:v0.0.1-builder` — this tag must be updated manually after each release (CI overwrites it with the correct tag at build time via `docker/metadata-action`)
 
 ## Skills
 

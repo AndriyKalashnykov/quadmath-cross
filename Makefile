@@ -8,6 +8,7 @@ NEWTAG         ?= $(shell bash -c 'read -p "Please provide a new tag (current ta
 HADOLINT_VERSION := 2.14.0
 ACT_VERSION      := 0.2.87
 NVM_VERSION      := 0.40.4
+NODE_VERSION     := 22
 
 # === Docker Image Settings ===
 DOCKER_REGISTRY  ?= docker.io
@@ -28,23 +29,28 @@ version:
 clean:
 	@rm -f helloworld-x86_64 helloworld-arm helloworld-aarch64
 
+#deps: @ Check required system dependencies
+deps:
+	@command -v docker >/dev/null 2>&1 || { echo "Error: Docker required. Install from https://www.docker.com/"; exit 1; }
+	@command -v git >/dev/null 2>&1 || { echo "Error: Git required. Install from https://git-scm.com/"; exit 1; }
+
 #build: @ Build amd64 builder image and runtime image
-build:
+build: deps
 	@docker build --platform linux/amd64 -f Dockerfile.builder -t $(DOCKER_IMAGE):$(CURRENTTAG)-builder .
 	@docker build --build-arg BUILDER_IMAGE=$(DOCKER_IMAGE):$(CURRENTTAG)-builder -f Dockerfile.runtime.local -t $(DOCKER_IMAGE):$(CURRENTTAG)-runtime .
 
 #image-run: @ Run arm64 runtime image interactively
-image-run:
+image-run: deps
 	@docker run -it --rm --platform linux/arm64 $(DOCKER_IMAGE):$(CURRENTTAG)-runtime /bin/sh
 
 #image-prune: @ Docker system prune and buildx prune
-image-prune:
+image-prune: deps
 	@docker system prune
 	@docker buildx prune
 
 #cross-compile: @ Cross-compile helloworld.c for x86_64, arm, and aarch64
-cross-compile:
-	@gcc helloworld.c -o helloworld-x86_64
+cross-compile: deps
+	@gcc -static helloworld.c -o helloworld-x86_64
 	@file helloworld-x86_64
 	@arm-linux-gnueabi-gcc helloworld.c -o helloworld-arm -static
 	@file helloworld-arm
@@ -52,7 +58,7 @@ cross-compile:
 	@file helloworld-aarch64
 
 #setup-binfmt: @ Setup Docker binfmt support for arm64 emulation on x86_64
-setup-binfmt:
+setup-binfmt: deps
 	@docker run --privileged --rm tonistiigi/binfmt:qemu-v10.2.1 --install all
 	@echo "binfmt setup complete. Test with: docker run -it --rm --platform linux/arm64 arm64v8/ubuntu sh"
 
@@ -64,7 +70,7 @@ lint: deps-hadolint
 	@hadolint Dockerfile.runtime.local
 
 #ci: @ Run full local CI pipeline (lint + build)
-ci: lint build
+ci: deps lint build
 	@echo "Local CI pipeline passed."
 
 #release: @ Create and push a new tag
@@ -74,7 +80,7 @@ release:
 	@echo -n "Are you sure to create and push $(NT) tag? [y/N] " && read ans && [ $${ans:-N} = y ]
 	@echo $(NT) > ./version.txt
 	@git add version.txt
-	@git commit -s -m "Cut $(NT) release"
+	@git commit -m "Cut $(NT) release"
 	@git tag $(NT)
 	@git push origin $(NT)
 	@git push
@@ -82,10 +88,11 @@ release:
 
 #tag-delete: @ Delete a tag locally and from origin (destructive, requires confirmation)
 tag-delete:
-	@echo -n "Are you sure you want to delete tag v0.0.1 locally and from origin? [y/N] " && read ans && [ $${ans:-N} = y ]
-	@rm -f version.txt
-	@git push --delete origin v0.0.1
-	@git tag --delete v0.0.1
+	@bash -c 'read -p "Tag to delete: " tag && \
+		echo -n "Are you sure you want to delete tag $$tag locally and from origin? [y/N] " && \
+		read ans && [ $${ans:-N} = y ] && \
+		git push --delete origin $$tag && \
+		git tag --delete $$tag'
 
 #deps-hadolint: @ Install hadolint for Dockerfile linting
 deps-hadolint:
@@ -98,7 +105,7 @@ deps-hadolint:
 #deps-act: @ Install act for running GitHub Actions locally
 deps-act:
 	@command -v act >/dev/null 2>&1 || { echo "Installing act $(ACT_VERSION)..."; \
-		curl -sSfL https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash -s -- -b /usr/local/bin v$(ACT_VERSION); \
+		curl -sSfL https://raw.githubusercontent.com/nektos/act/v$(ACT_VERSION)/install.sh | sudo bash -s -- -b /usr/local/bin v$(ACT_VERSION); \
 	}
 
 #ci-run: @ Run GitHub Actions workflow locally using act
@@ -113,14 +120,14 @@ renovate-bootstrap:
 		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v$(NVM_VERSION)/install.sh | bash; \
 		export NVM_DIR="$$HOME/.nvm"; \
 		[ -s "$$NVM_DIR/nvm.sh" ] && . "$$NVM_DIR/nvm.sh"; \
-		nvm install --lts; \
+		nvm install $(NODE_VERSION); \
 	}
 
 #renovate-validate: @ Validate Renovate configuration
 renovate-validate: renovate-bootstrap
 	@npx --yes renovate --platform=local
 
-.PHONY: help version clean build image-run image-prune cross-compile setup-binfmt \
+.PHONY: help version clean deps build image-run image-prune cross-compile setup-binfmt \
 	lint ci release tag-delete \
 	deps-hadolint deps-act ci-run \
 	renovate-bootstrap renovate-validate

@@ -10,18 +10,22 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  actions: write
   contents: read
 
 jobs:
   cleanup:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      actions: write
     steps:
       - name: Delete old workflow runs
-        uses: Mattraks/delete-workflow-runs@b3018382ca039b53d238908238bd35d1fb14f8ee # v2.1.0
-        with:
-          token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          retain_days: 7
-          keep_minimum_runs: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cutoff=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          gh run list --limit 200 --json databaseId,createdAt \
+            --jq --arg cutoff "$cutoff" \
+            '.[5:] | [.[] | select(.createdAt < $cutoff)] | .[].databaseId' \
+            | xargs -rI {} gh run delete {}

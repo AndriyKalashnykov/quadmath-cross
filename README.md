@@ -12,6 +12,7 @@ Docker-based cross-compilation environment for building 128-bit floating-point (
 ```bash
 make setup-binfmt  # setup QEMU binfmt for arm64 emulation (one-time)
 make build         # build amd64 builder image + runtime image
+make lint          # lint all Dockerfiles with hadolint
 make image-run     # run arm64 runtime image interactively
 ```
 
@@ -22,6 +23,8 @@ make image-run     # run arm64 runtime image interactively
 | [GNU Make](https://www.gnu.org/software/make/) | 3.81+ | Build orchestration |
 | [Docker](https://www.docker.com/) | latest | Container builds with Buildx |
 | [Git](https://git-scm.com/) | 2.0+ | Version control and tagging |
+| [hadolint](https://github.com/hadolint/hadolint) | 2.14.0 | Dockerfile linting (auto-installed by `make lint`) |
+| [act](https://github.com/nektos/act) | 0.2.87 | Run GitHub Actions locally (auto-installed by `make ci-run`) |
 
 ## Available Make Targets
 
@@ -37,6 +40,7 @@ Run `make help` to see all available targets.
 | `make cross-compile` | Cross-compile helloworld.c for x86_64, arm, and aarch64 |
 | `make setup-binfmt` | Setup Docker binfmt support for arm64 emulation on x86_64 |
 | `make clean` | Remove build artifacts |
+| `make deps` | Check required system dependencies |
 
 ### Code Quality
 
@@ -44,29 +48,37 @@ Run `make help` to see all available targets.
 |--------|-------------|
 | `make lint` | Lint all Dockerfiles with [hadolint](https://github.com/hadolint/hadolint) |
 
+### Dependencies
+
+| Target | Description |
+|--------|-------------|
+| `make deps-hadolint` | Install [hadolint](https://github.com/hadolint/hadolint) for Dockerfile linting |
+| `make deps-act` | Install [act](https://github.com/nektos/act) for running GitHub Actions locally |
+| `make renovate-bootstrap` | Install nvm and npm for Renovate validation |
+
 ### CI
 
 | Target | Description |
 |--------|-------------|
 | `make ci` | Full local CI pipeline (lint + build) |
-| `make ci-run` | Run GitHub Actions workflow locally via [act](https://github.com/nektos/act) |
+| `make ci-run` | Run GitHub Actions workflow locally using [act](https://github.com/nektos/act) |
 
 ### Utilities
 
 | Target | Description |
 |--------|-------------|
 | `make version` | Print current version (tag) |
-| `make release` | Create and push a new semver tag |
-| `make tag-delete` | Delete a tag locally and from origin |
+| `make release` | Create and push a new tag |
+| `make tag-delete` | Delete a tag locally and from origin (destructive, requires confirmation) |
 | `make renovate-validate` | Validate Renovate configuration |
 
 ## CI/CD
 
-GitHub Actions runs on every push to `main`, tags `v*`, and pull requests.
+GitHub Actions runs on every push to `main`, tags `v*`, pull requests, and `workflow_call`.
 
 | Job | Triggers | Description |
 |-----|----------|-------------|
-| **docker-image-test** | push, PR | Builds builder + runtime images to verify the build works |
+| **docker-image-test** | push, PR, workflow_call | Lints Dockerfiles and builds builder + runtime images to verify the build works |
 | **docker-image-builder** | tag push (v*) | Builds and pushes amd64 builder image to ghcr.io |
 | **docker-image-runtime** | tag push (v*) | Builds and pushes multi-platform (arm64 + amd64) runtime image to ghcr.io |
 
