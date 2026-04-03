@@ -222,7 +222,7 @@ int main()
 // filter through c++filt -t if using gcc or similar.
 
 //[float128_type_info
-const std::type_info& tifu128 = typeid(__float128); // OK.
+(void)typeid(__float128); // OK — type_info not stored, name() aborts on GCC.
 //std::cout << tifu128.name() << std::endl; // On GCC, aborts (because not printable string).
 //std::cout << typeid(__float128).name() << std::endl; // Aborts -
 //  string name cannot be output.
@@ -240,7 +240,7 @@ std::cout << tpi.name() << std::endl; // OK, Output implementation-dependent man
 //] [/float128_type_info]
 
   }
-  catch (std::exception ex)
+  catch (const std::exception& ex)
   { // Display details about why any exceptions are thrown.
     std::cout << "Thrown exception " << ex.what() << std::endl;
   }
