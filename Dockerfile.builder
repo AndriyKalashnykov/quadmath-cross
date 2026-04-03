@@ -28,7 +28,7 @@ RUN DEBIAN_FRONTEND=${DEBIAN_FRONTEND} apt-get install -y --no-install-recommend
     libc6-amd64-cross libc6-dev-arm64-cross libc6-dev-armel-cross libc6-dev-armhf-cross libc6-dev-i386 \
     libdlib-dev libblas-dev libatlas-base-dev liblapack-dev wget bzip2 \
     gfortran libgfortran5 libquadmath0 libquadmath0-amd64-cross libquadrule-dev \
-    libboost-dev libboost-system-dev \
+    libboost-dev \
     cppcheck
 
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 60 --slave /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION} && \
@@ -53,7 +53,7 @@ RUN aarch64-linux-gnu-gcc -Wall -Wextra -static hello.c -o hello-arm64
 
 # sqrt(2) via __float128 + libquadmath C API
 RUN x86_64-linux-gnu-g++ -I/usr/lib/gcc/x86_64-linux-gnu/${GCC_VERSION} -I/usr/lib/gcc/x86_64-linux-gnu/${GCC_VERSION}/include \
-    quadmath.cpp -o qm-x86_64 -static -lm -lpthread -lgfortran -lboost_system -lquadmath
+    quadmath.cpp -o qm-x86_64 -static -lm -lpthread -lgfortran -lquadmath
 
 # Boost multiprecision float128 extended example
 RUN x86_64-linux-gnu-g++ -Wall -std=gnu++14 -fexceptions -fext-numeric-literals \

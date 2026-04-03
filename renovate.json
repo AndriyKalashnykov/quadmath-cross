@@ -61,6 +61,26 @@
       "depNameTemplate": "nvm-sh/nvm",
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Track Node.js major version in Makefile",
+      "managerFilePatterns": ["/^Makefile$/"],
+      "matchStrings": [
+        "NODE_VERSION\\s*:=\\s*(?<currentValue>\\d+)\\n"
+      ],
+      "depNameTemplate": "node",
+      "datasourceTemplate": "node-version"
+    },
+    {
+      "customType": "regex",
+      "description": "Track tonistiigi/binfmt image version in Makefile",
+      "managerFilePatterns": ["/^Makefile$/"],
+      "matchStrings": [
+        "tonistiigi/binfmt:(?<currentValue>[^\\s]+)"
+      ],
+      "depNameTemplate": "tonistiigi/binfmt",
+      "datasourceTemplate": "docker"
     }
   ],
   "packageRules": [
