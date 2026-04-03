@@ -1,74 +1,126 @@
-projectname?=quadmath-cross
+.DEFAULT_GOAL := help
 
-CURRENTTAG:=$(shell git describe --tags --abbrev=0)
-NEWTAG ?= $(shell bash -c 'read -p "Please provide a new tag (currnet tag - ${CURRENTTAG}): " newtag; echo $$newtag')
+APP_NAME       := quadmath-cross
+CURRENTTAG     := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
+NEWTAG         ?= $(shell bash -c 'read -p "Please provide a new tag (current tag - $(CURRENTTAG)): " newtag; echo $$newtag')
 
-default: help
+# === Tool Versions (pinned) ===
+HADOLINT_VERSION := 2.14.0
+ACT_VERSION      := 0.2.87
+NVM_VERSION      := 0.40.4
 
-help: ## list makefile targets
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-10s\033[0m %s\n", $$1, $$2}'
+# === Docker Image Settings ===
+DOCKER_REGISTRY  ?= docker.io
+DOCKER_ORG       ?= andriykalashnykov
+DOCKER_IMAGE     := $(DOCKER_REGISTRY)/$(DOCKER_ORG)/$(APP_NAME)
 
-release: ## create and push a new tag
-	$(eval NT=$(NEWTAG))
-	@echo -n "Are you sure to create and push ${NT} tag? [y/N] " && read ans && [ $${ans:-N} = y ]
-	@echo ${NT} > ./version.txt
-	@git add -A
-	@git commit -a -s -m "Cut ${NT} release"
-	@git tag ${NT}
-	@git push origin ${NT}
+#help: @ List available tasks
+help:
+	@echo "Usage: make COMMAND"
+	@echo "Commands :"
+	@grep -E '[a-zA-Z\.\-]+:.*?@ .*$$' $(MAKEFILE_LIST)| tr -d '#' | awk 'BEGIN {FS = ":.*?@ "}; {printf "\033[32m%-22s\033[0m - %s\n", $$1, $$2}'
+
+#version: @ Print current version (tag)
+version:
+	@echo $(CURRENTTAG)
+
+#clean: @ Remove build artifacts
+clean:
+	@rm -f helloworld-x86_64 helloworld-arm helloworld-aarch64
+
+#build: @ Build amd64 builder image and runtime image
+build:
+	@docker build --platform linux/amd64 -f Dockerfile.builder -t $(DOCKER_IMAGE):$(CURRENTTAG)-builder .
+	@docker build --build-arg BUILDER_IMAGE=$(DOCKER_IMAGE):$(CURRENTTAG)-builder -f Dockerfile.runtime.local -t $(DOCKER_IMAGE):$(CURRENTTAG)-runtime .
+
+#image-run: @ Run arm64 runtime image interactively
+image-run:
+	@docker run -it --rm --platform linux/arm64 $(DOCKER_IMAGE):$(CURRENTTAG)-runtime /bin/sh
+
+#image-prune: @ Docker system prune and buildx prune
+image-prune:
+	@docker system prune
+	@docker buildx prune
+
+#cross-compile: @ Cross-compile helloworld.c for x86_64, arm, and aarch64
+cross-compile:
+	@gcc helloworld.c -o helloworld-x86_64
+	@file helloworld-x86_64
+	@arm-linux-gnueabi-gcc helloworld.c -o helloworld-arm -static
+	@file helloworld-arm
+	@aarch64-linux-gnu-gcc helloworld.c -o helloworld-aarch64 -static
+	@file helloworld-aarch64
+
+#setup-binfmt: @ Setup Docker binfmt support for arm64 emulation on x86_64
+setup-binfmt:
+	@docker run --privileged --rm tonistiigi/binfmt:qemu-v10.2.1 --install all
+	@echo "binfmt setup complete. Test with: docker run -it --rm --platform linux/arm64 arm64v8/ubuntu sh"
+
+#lint: @ Lint all Dockerfiles with hadolint
+lint: deps-hadolint
+	@hadolint Dockerfile
+	@hadolint Dockerfile.builder
+	@hadolint Dockerfile.runtime
+	@hadolint Dockerfile.runtime.local
+
+#ci: @ Run full local CI pipeline (lint + build)
+ci: lint build
+	@echo "Local CI pipeline passed."
+
+#release: @ Create and push a new tag
+release:
+	@$(eval NT=$(NEWTAG))
+	@echo "$(NT)" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$$' || { echo "Error: Tag must match vN.N.N"; exit 1; }
+	@echo -n "Are you sure to create and push $(NT) tag? [y/N] " && read ans && [ $${ans:-N} = y ]
+	@echo $(NT) > ./version.txt
+	@git add version.txt
+	@git commit -s -m "Cut $(NT) release"
+	@git tag $(NT)
+	@git push origin $(NT)
 	@git push
 	@echo "Done."
 
-version: ## Print current version(tag)
-	@echo $(shell git describe --tags --abbrev=0)
+#tag-delete: @ Delete a tag locally and from origin (destructive, requires confirmation)
+tag-delete:
+	@echo -n "Are you sure you want to delete tag v0.0.1 locally and from origin? [y/N] " && read ans && [ $${ans:-N} = y ]
+	@rm -f version.txt
+	@git push --delete origin v0.0.1
+	@git tag --delete v0.0.1
 
-dp:
-	docker system prune
-	docker buildx prune
+#deps-hadolint: @ Install hadolint for Dockerfile linting
+deps-hadolint:
+	@command -v hadolint >/dev/null 2>&1 || { echo "Installing hadolint $(HADOLINT_VERSION)..."; \
+		curl -sSfL -o /tmp/hadolint https://github.com/hadolint/hadolint/releases/download/v$(HADOLINT_VERSION)/hadolint-Linux-x86_64 && \
+		install -m 755 /tmp/hadolint /usr/local/bin/hadolint && \
+		rm -f /tmp/hadolint; \
+	}
 
-# setup Docker to run arm64 images on Ubuntu x86_64
-# https://jkfran.com/running-ubuntu-arm-with-docker/
-# https://www.stereolabs.com/docs/docker/building-arm-container-on-x86
-# https://github.com/carlosperate/arm-none-eabi-gcc-action
-# https://embeddedinventor.com/a-complete-beginners-guide-to-the-gnu-arm-toolchain-part-1/
-# export PATH=/path/to/install/dir/bin:$PATH
-sd:
-	docker run --privileged --rm tonistiigi/binfmt --install all
-	docker run -it --rm --platform linux/arm64 arm64v8/ubuntu sh
-# uname -m
-# aarch64
+#deps-act: @ Install act for running GitHub Actions locally
+deps-act:
+	@command -v act >/dev/null 2>&1 || { echo "Installing act $(ACT_VERSION)..."; \
+		curl -sSfL https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash -s -- -b /usr/local/bin v$(ACT_VERSION); \
+	}
 
-ba:
-	docker build --platform linux/amd64 -f Dockerfile.builder -t docker.io/anriykalashnykov/quadmath-cross:v0.0.1-builder .
-	docker build -f Dockerfile.runtme.local -t docker.io/anriykalashnykov/quadmath-cross:v0.0.1-runtime .
-#	docker build --platform linux/amd64 -f Dockerfile -t docker.io/anriykalashnykov/quadmath-cross:gcc .
+#ci-run: @ Run GitHub Actions workflow locally using act
+ci-run: deps-act
+	@act push --container-architecture linux/amd64 \
+		--artifact-server-path /tmp/act-artifacts
 
-ra:
-	docker run -it --rm --platform linux/arm64 docker.io/anriykalashnykov/quadmath-cross:v0.0.1-runtime /bin/sh
-#	docker run -it --rm --platform linux/amd64 docker.io/anriykalashnykov/quadmath-cross:v0.0.1-builder /bin/sh
-#	docker run -it --rm --platform linux/arm64 docker.io/anriykalashnykov/quadmath-cross:gcc /bin/sh
+#renovate-bootstrap: @ Install nvm and npm for Renovate
+renovate-bootstrap:
+	@command -v node >/dev/null 2>&1 || { \
+		echo "Installing nvm $(NVM_VERSION)..."; \
+		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v$(NVM_VERSION)/install.sh | bash; \
+		export NVM_DIR="$$HOME/.nvm"; \
+		[ -s "$$NVM_DIR/nvm.sh" ] && . "$$NVM_DIR/nvm.sh"; \
+		nvm install --lts; \
+	}
 
-dt:
-	rm -f version.txt
-	git push --delete origin v0.0.1
-	git tag --delete v0.0.1
+#renovate-validate: @ Validate Renovate configuration
+renovate-validate: renovate-bootstrap
+	@npx --yes renovate --platform=local
 
-# Cross compiling for arm or aarch64 on Debian or Ubuntu
-# https://jensd.be/1126/linux/cross-compiling-for-arm-or-aarch64-on-debian-or-ubuntu
-# wget https://github.com/strace/strace/releases/download/v6.11/strace-6.11.tar.xz
-# tar -xf strace-6.11.tar.xz
-# cd strace-6.11/
-# ./configure --build x86_64-pc-linux-gnu --host aarch64-linux-gnu LDFLAGS="-static -pthread" --enable-mpers=check
-# make
-# 			file strace
-hw:
-	gcc helloworld.c -o helloworld-x86_64
-	file helloworld-x86_64
-	arm-linux-gnueabi-gcc helloworld.c -o helloworld-arm -static
-	file helloworld-arm
-	aarch64-linux-gnu-gcc helloworld.c -o helloworld-aarch64 -static
-	file helloworld-aarch64
-
-
-
-
+.PHONY: help version clean build image-run image-prune cross-compile setup-binfmt \
+	lint ci release tag-delete \
+	deps-hadolint deps-act ci-run \
+	renovate-bootstrap renovate-validate

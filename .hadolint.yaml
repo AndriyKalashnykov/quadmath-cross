@@ -1,0 +1,5 @@
+ignored:
+  - DL3008  # apt-get install without version pinning — intentional for cross-compilation toolchains
+  - DL3009  # delete apt lists after installing — not needed in builder images
+  - DL3015  # apt-get install missing --no-install-recommends — used on some lines intentionally
+  - DL3059  # multiple consecutive RUN instructions — intentional for readability and layer caching in builder

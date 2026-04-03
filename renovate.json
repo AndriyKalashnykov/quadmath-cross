@@ -2,35 +2,34 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:best-practices",
-    ":semanticCommitType(chore)",
-    ":separatePatchReleases"
+    ":semanticCommitType(chore)"
   ],
-  "postUpdateOptions": [
-    "gomodTidy"
-  ],
-  "commitMessagePrefix": "chore(all): ",
   "commitMessageAction": "update",
   "commitBody": "Signed-off-by: Renovate Bot <bot@renovateapp.com>",
   "labels": [
     "dependencies"
   ],
-  "prConcurrentLimit": 50,
+  "prConcurrentLimit": 0,
   "prHourlyLimit": 0,
   "platformAutomerge": true,
   "automerge": true,
   "automergeType": "branch",
+  "ignoreTests": false,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true,
+    "schedule": [
+      "before 5am on monday"
+    ]
+  },
+  "vulnerabilityAlerts": {
+    "labels": [
+      "security"
+    ],
+    "automerge": true,
+    "minimumReleaseAge": "0 days"
+  },
   "packageRules": [
-    {
-      "description": "Automerge all updates when checks pass",
-      "matchUpdateTypes": [
-        "major",
-        "minor",
-        "patch",
-        "pin",
-        "digest"
-      ],
-      "automerge": true
-    },
     {
       "description": "Wait 3 days before automerging major updates",
       "matchUpdateTypes": [
@@ -52,14 +51,5 @@
       ],
       "groupName": "Docker dependencies"
     }
-  ],
-  "ignoreTests": false,
-  "automergeStrategy": "squash",
-  "vulnerabilityAlerts": {
-    "labels": [
-      "security"
-    ],
-    "automerge": true,
-    "minimumReleaseAge": "0 days"
-  }
+  ]
 }
