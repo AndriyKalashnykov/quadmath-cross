@@ -37,6 +37,7 @@ make renovate-validate # Validate Renovate configuration
    - Math libraries: libquadmath, gfortran, lapack, blas, atlas
    - Boost multiprecision for C++ float128 support
    - QEMU user-static for running cross-compiled binaries
+   - cppcheck static analysis runs before compilation (own sources only; `float128_example.cpp` excluded as third-party Boost example)
    - Compiles all C/C++ sources into statically-linked binaries at build time
 
 2. **Runtime image** (`Dockerfile.runtime` / `Dockerfile.runtime.local`) - Alpine with only the compiled binaries:

@@ -28,7 +28,8 @@ RUN DEBIAN_FRONTEND=${DEBIAN_FRONTEND} apt-get install -y --no-install-recommend
     libc6-amd64-cross libc6-dev-arm64-cross libc6-dev-armel-cross libc6-dev-armhf-cross libc6-dev-i386 \
     libdlib-dev libblas-dev libatlas-base-dev liblapack-dev wget bzip2 \
     gfortran libgfortran5 libquadmath0 libquadmath0-amd64-cross libquadrule-dev \
-    libboost-dev libboost-system-dev
+    libboost-dev libboost-system-dev \
+    cppcheck
 
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 60 --slave /usr/bin/g++ g++ /usr/bin/g++-${GCC_VERSION} && \
     update-alternatives --install /usr/bin/aarch64-linux-gnu-g++ aarch64-linux-gnu-g++ /usr/bin/aarch64-linux-gnu-g++-${GCC_VERSION} 60 && \
@@ -39,6 +40,12 @@ WORKDIR /app
 COPY ./hello.c .
 COPY ./quadmath.cpp .
 COPY ./float128_example.cpp .
+
+# Static analysis (own sources only — float128_example.cpp is a third-party Boost example)
+RUN cppcheck --enable=all --error-exitcode=1 \
+    --suppress=missingIncludeSystem --suppress=missingInclude \
+    --suppress=checkersReport --suppress=unmatchedSuppression \
+    hello.c quadmath.cpp
 
 # Cross-compilation smoke test (x86_64 + arm64)
 RUN x86_64-linux-gnu-gcc -Wall -Wextra -static hello.c -o hello-x86_64

@@ -22,7 +22,7 @@ int main ()
 	n = quadmath_snprintf (NULL, 0, "%+-#46.*Qe", prec, r);
 	if (n > -1)
 	{
-		char *str = (char*)malloc (n + 1);
+		char *str = static_cast<char*>(malloc (n + 1));
 		if (str)
 		{
 			quadmath_snprintf (str, n + 1, "%+-#46.*Qe", prec, r);
