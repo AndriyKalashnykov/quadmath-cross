@@ -88,9 +88,6 @@ make renovate-validate # Validate Renovate configuration
 ## Upgrade Backlog
 
 - [ ] `ARG GCC_VERSION=14` in Dockerfile.builder is not tracked by Renovate — manually update when Ubuntu Noble ships GCC 15 (verified 2026-04-03: gcc-15 not yet in Noble repos)
-- [ ] `NODE_VERSION := 22` in Makefile is not tracked by Renovate — add `customManagers` regex with `node-version` datasource
-- [ ] `tonistiigi/binfmt:qemu-v10.2.1` in Makefile `setup-binfmt` target is not tracked by Renovate — add `customManagers` regex with `docker` datasource
-- [ ] `Dockerfile.runtime` hardcodes `ghcr.io/andriykalashnykov/quadmath-cross:v0.0.1-builder` — update to current version after each release (CI overwrites with correct tag at build time via `docker/metadata-action`)
 - Boost 1.83 (apt, header-only usage) is sufficient — all Boost usage is header-only (`float128_example.cpp` is a frozen third-party example); no upgrade needed unless new Boost features are required
 
 ## Skills

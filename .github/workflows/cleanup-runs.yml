@@ -26,6 +26,5 @@ jobs:
         run: |
           cutoff=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
           gh run list --limit 200 --json databaseId,createdAt \
-            --jq --arg cutoff "$cutoff" \
-            '.[5:] | [.[] | select(.createdAt < $cutoff)] | .[].databaseId' \
+            --jq ".[5:] | [.[] | select(.createdAt < \"${cutoff}\")] | .[].databaseId" \
             | xargs -rI {} gh run delete {}
