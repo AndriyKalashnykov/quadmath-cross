@@ -8,7 +8,7 @@ NEWTAG         ?= $(shell bash -c 'read -p "Please provide a new tag (current ta
 HADOLINT_VERSION := 2.14.0
 ACT_VERSION      := 0.2.87
 NVM_VERSION      := 0.40.4
-NODE_VERSION     := 22
+NODE_VERSION     := 24
 
 # === Docker Image Settings ===
 DOCKER_REGISTRY  ?= docker.io
