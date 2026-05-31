@@ -158,6 +158,8 @@ GitHub Actions runs on every push to `main`, tags `v*`, pull requests, and `work
 | **docker-image-runtime** | tag push (`v*`) | Builds the runtime image, **Trivy-scans + smoke-tests** it, pushes multi-platform (arm64 + amd64) to ghcr.io, then cosign-signs it |
 | **ci-pass** | all | Aggregator gate — succeeds only if the required jobs passed (suitable as a single required status check) |
 
+Documentation-only changes (Markdown, `LICENSE`) skip the image build — the `changes` job uses a [`dorny/paths-filter`](https://github.com/dorny/paths-filter) gate so `docker-image-test` runs only when non-docs files change.
+
 A [cleanup workflow](https://github.com/AndriyKalashnykov/quadmath-cross/actions/workflows/cleanup-runs.yml) runs weekly to prune workflow runs older than 7 days.
 
 [Renovate](https://docs.renovatebot.com/) keeps dependencies up to date with PR automerge (squash) enabled.
