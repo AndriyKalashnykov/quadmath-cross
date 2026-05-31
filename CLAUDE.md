@@ -20,7 +20,9 @@ make clean             # Remove build artifacts
 make setup-binfmt      # Setup Docker binfmt for arm64 emulation on x86_64 (one-time)
 make cross-compile     # Cross-compile helloworld.c for x86_64, arm, aarch64 (requires local cross-compilers)
 make lint              # Lint all Dockerfiles with hadolint
-make ci                # Full local CI pipeline (lint + build)
+make trivy-fs          # Scan repo for vulnerabilities + secrets with trivy
+make smoke             # Run every compiled binary + assert output (arm64 via QEMU)
+make ci                # Full local CI pipeline (lint + trivy-fs + build + smoke)
 make ci-run            # Run GitHub Actions workflow locally via act
 make version           # Print current git tag version
 make release           # Interactive: create and push a new git tag
@@ -39,10 +41,19 @@ make renovate-validate # Validate Renovate configuration
    - QEMU user-static for running cross-compiled binaries
    - cppcheck static analysis runs before compilation (own sources only; `float128_example.cpp` excluded as third-party Boost example)
    - Compiles all C/C++ sources into statically-linked binaries at build time
+   - **Behavioral verification**: after compilation, every binary is executed and its output asserted (arm64 via `qemu-aarch64-static`, no binfmt needed since binaries are static). A broken artifact fails the image build. `make smoke` repeats these assertions against the built images and is folded into `make ci`.
 
-2. **Runtime image** (`Dockerfile.runtime` / `Dockerfile.runtime.local`) - Alpine with only the compiled binaries:
-   - `Dockerfile.runtime` pulls builder from `ghcr.io` (used in CI)
-   - `Dockerfile.runtime.local` pulls builder from local Docker (used with `make build`)
+2. **Runtime image** (`Dockerfile.runtime` / `Dockerfile.runtime.local`) - Alpine with only the compiled binaries. Both take an `ARG BUILDER_IMAGE` so the builder reference is supplied at build time:
+   - `Dockerfile.runtime` (CI): the `docker-image-runtime` job passes `BUILDER_IMAGE=ghcr.io/<owner>/quadmath-cross:${tag}-builder`, so the runtime always pulls the exact builder for the release being built.
+   - `Dockerfile.runtime.local` (`make build`): `make build` passes the just-built local `docker.io/$(DOCKER_ORG)/quadmath-cross:<tag>-builder`.
+   - The `ARG` default in each file is only a fallback for a bare `docker build` without `--build-arg`.
+
+### Two registries (local vs CI)
+
+- **Local** (`make build`): tags images `docker.io/$(DOCKER_ORG)/quadmath-cross:<tag>-builder` / `-runtime` (overridable via `DOCKER_REGISTRY` / `DOCKER_ORG`); never touches ghcr.io.
+- **CI** (tag push): publishes both images to `ghcr.io/<owner>/quadmath-cross`, Trivy-scanned + smoke-tested and cosign-signed.
+
+Because the builder reference is a build-arg derived from the release tag, there is **no manual `FROM`-tag bump** when cutting a release.
 
 ### Source Files
 
@@ -66,12 +77,14 @@ make renovate-validate # Validate Renovate configuration
 
 ### Main workflow: `.github/workflows/ci.yml`
 
-- **On push/PR/workflow_call**: `docker-image-test` job runs `make ci` (lint + build) to verify the build works
-- **On tag push (v*)**: three jobs run in sequence:
-  1. `docker-image-test` — lint and build verification
-  2. `docker-image-builder` — builds and pushes amd64-only builder image to ghcr.io
-  3. `docker-image-runtime` — builds and pushes multi-platform (`linux/arm64,linux/amd64`) runtime image to ghcr.io
-- Uses `secrets.GITHUB_TOKEN` for ghcr.io authentication
+- **`changes`** (all events): `dorny/paths-filter` skips the build on docs-only changes (`*.md`, `LICENSE`).
+- **On push/PR/workflow_call**: `docker-image-test` runs `make ci` (hadolint + Trivy filesystem scan + builder/runtime build) — gated on `changes` (or any tag).
+- **On tag push (v*)**: three jobs run in sequence after `docker-image-test`:
+  1. `docker-image-builder` — builds + pushes the amd64 builder image to ghcr.io, then cosign-signs it (`id-token: write`).
+  2. `docker-image-runtime` — builds the runtime image (amd64) → **Trivy image scan** (CRITICAL/HIGH blocking) → **smoke test** (`qm-x86_64` prints `sqrt(2)`) → pushes multi-platform (`linux/arm64,linux/amd64`) → cosign-signs the digest.
+- **`ci-pass`** (all events): aggregator that fails if a required job failed/cancelled — the intended single required status check.
+- Uses `secrets.GITHUB_TOKEN` for ghcr.io auth; cosign uses keyless OIDC (Sigstore).
+- The builder image is **not** CVE-gated (it is a dev-toolchain image with expected `-dev`/compiler CVEs that never reach the Alpine runtime); the runtime image — the artifact users run — is the gated one.
 
 ### Cleanup workflow: `.github/workflows/cleanup-runs.yml`
 
@@ -83,12 +96,13 @@ make renovate-validate # Validate Renovate configuration
 - Version tracked in `version.txt` and git tags (current: v0.0.2)
 - GCC version is parameterized via `ARG GCC_VERSION=14` in Dockerfile.builder
 - All C binaries are statically linked (`-static`) for portability across architectures
-- Renovate manages dependency updates with branch automerge enabled
+- Renovate manages dependency updates with PR automerge (squash) enabled
+- **Version manager**: mise (`.mise.toml`) provides Node.js (used only by `make renovate-validate`); auto-installed tools (hadolint, act, trivy) live in `~/.local/bin` (no sudo), which the Makefile adds to `PATH`
+- **Boost** is consumed header-only via apt (`libboost-dev`); `float128_example.cpp` is a frozen third-party Boost.Math example, so no Boost version bump is needed unless new Boost features are required
 
 ## Upgrade Backlog
 
 - [ ] `ARG GCC_VERSION=14` in Dockerfile.builder is not tracked by Renovate — manually update when Ubuntu Noble ships GCC 15 (verified 2026-04-03: gcc-15 not yet in Noble repos)
-- Boost 1.83 (apt, header-only usage) is sufficient — all Boost usage is header-only (`float128_example.cpp` is a frozen third-party example); no upgrade needed unless new Boost features are required
 
 ## Skills
 
@@ -99,6 +113,6 @@ Use the following skills when working on related files:
 | `Makefile` | `/makefile` |
 | `renovate.json` | `/renovate` |
 | `README.md` | `/readme` |
-| `.github/workflows/*.yml` | `/ci-workflow` |
+| `.github/workflows/*.{yml,yaml}` | `/ci-workflow` |
 
 When spawning subagents, always pass conventions from the respective skill into the agent's prompt.

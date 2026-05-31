@@ -1,0 +1,5 @@
+# mise — cross-language tool versions (https://mise.jdx.dev).
+# Node.js is required only by `make renovate-validate` (runs `npx renovate`).
+# Tracked by Renovate's `mise` manager.
+[tools]
+node = "24"
