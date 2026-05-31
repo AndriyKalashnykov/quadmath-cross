@@ -5,22 +5,27 @@
 
 # Quadmath Cross-Compilation
 
-**quadmath-cross** is a Docker-based cross-compilation environment for building 128-bit
-floating-point (quadruple-precision) C/C++ programs across multiple CPU architectures
-(amd64, arm64, arm, armel).
+**quadmath-cross** cross-compiles statically-linked C/C++ programs that exercise 128-bit
+quadruple-precision floating point (`__float128` via **GCC libquadmath**, and **Boost.Multiprecision**
+`float128`) for amd64, arm64, arm, and armel. The **build surface** is a two-stage Docker pipeline — a
+**GCC 14 + QEMU** builder that compiles and verifies the binaries (cppcheck, plus run-and-assert of every
+artifact including arm64 under QEMU) feeding a minimal **Alpine runtime** image — while the **delivery
+surface** adds hadolint + Trivy scanning, **cosign** keyless signing, and Renovate-managed multi-platform
+publishing to **GitHub Container Registry**.
 
-It cross-compiles **statically-linked** binaries that exercise `__float128` via
-**GCC libquadmath** (the C quad-math API: `sqrtq`, `quadmath_snprintf`) and
-**Boost.Multiprecision** `float128`, using **GCC 14** cross-toolchains with
-**QEMU user-static** for multi-arch emulation.
+## Tech Stack
 
-The delivery pipeline is a **two-stage Docker build**: a fat **builder** image
-(Ubuntu Noble + full cross-toolchain, with **cppcheck** static analysis) compiles the
-binaries, and a minimal **Alpine runtime** image carries only the resulting static
-binaries. **hadolint** lints the Dockerfiles, **Trivy** scans the filesystem and the
-runtime image for CVEs/secrets, and **GitHub Actions** publishes **cosign**-signed
-multi-platform images to **GitHub Container Registry**, with **Renovate** keeping
-dependencies current.
+| Component | Technology |
+|-----------|------------|
+| Cross toolchain | GCC 14 (x86_64, aarch64, arm, armhf cross-compilers) |
+| Quad-precision math | libquadmath / `__float128`, Boost.Multiprecision `float128` |
+| Multi-arch emulation | QEMU user-static + binfmt |
+| Builder base | Ubuntu 24.04 (Noble), digest-pinned |
+| Runtime base | Alpine 3.23, digest-pinned |
+| Static analysis | cppcheck (sources), hadolint (Dockerfiles), Trivy (filesystem + image) |
+| Supply chain | cosign keyless signing (Sigstore), GitHub Actions, GHCR |
+| Tooling | GNU Make, mise (Node.js for Renovate), act |
+| Dependency updates | Renovate |
 
 ## Quick Start
 
@@ -28,7 +33,7 @@ dependencies current.
 make setup-binfmt  # set up QEMU binfmt for arm64 emulation (one-time)
 make build         # build amd64 builder image + local runtime image
 make image-run     # run the arm64 runtime image interactively
-make ci            # full local pipeline: lint + filesystem scan + build
+make ci            # full local pipeline: lint + scan + build + binary smoke test
 ```
 
 ## Prerequisites
@@ -92,20 +97,6 @@ cosign verify ghcr.io/andriykalashnykov/quadmath-cross:<tag>-runtime \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
-## Tech Stack
-
-| Component | Technology |
-|-----------|------------|
-| Cross toolchain | GCC 14 (x86_64, aarch64, arm, armhf cross-compilers) |
-| Quad-precision math | libquadmath / `__float128`, Boost.Multiprecision `float128` |
-| Multi-arch emulation | QEMU user-static + binfmt |
-| Builder base | Ubuntu 24.04 (Noble), digest-pinned |
-| Runtime base | Alpine 3.23, digest-pinned |
-| Static analysis | cppcheck (sources), hadolint (Dockerfiles), Trivy (filesystem + image) |
-| Supply chain | cosign keyless signing (Sigstore), GitHub Actions, GHCR |
-| Tooling | GNU Make, mise (Node.js for Renovate), act |
-| Dependency updates | Renovate |
-
 ## Available Make Targets
 
 Run `make help` to see all available targets.
@@ -162,7 +153,7 @@ GitHub Actions runs on every push to `main`, tags `v*`, pull requests, and `work
 | Job | Triggers | Description |
 |-----|----------|-------------|
 | **changes** | all | Path filter — skips the build for docs-only changes (`*.md`, `LICENSE`) |
-| **docker-image-test** | push, PR, workflow_call | Runs `make ci` (hadolint + Trivy filesystem scan + builder/runtime build) |
+| **docker-image-test** | push, PR, workflow_call | Runs `make ci` (hadolint + Trivy filesystem scan + builder/runtime build + binary smoke test) |
 | **docker-image-builder** | tag push (`v*`) | Builds and pushes the amd64 builder image to ghcr.io, then cosign-signs it |
 | **docker-image-runtime** | tag push (`v*`) | Builds the runtime image, **Trivy-scans + smoke-tests** it, pushes multi-platform (arm64 + amd64) to ghcr.io, then cosign-signs it |
 | **ci-pass** | all | Aggregator gate — succeeds only if the required jobs passed (suitable as a single required status check) |
