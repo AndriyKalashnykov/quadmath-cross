@@ -11,7 +11,7 @@ NEWTAG         ?= $(shell bash -c 'read -p "Please provide a new tag (current ta
 
 # === Tool Versions (pinned; tracked by renovate.json customManagers) ===
 HADOLINT_VERSION := 2.14.0
-ACT_VERSION      := 0.2.87
+ACT_VERSION      := 0.2.88
 TRIVY_VERSION    := 0.70.0
 # Node.js is pinned in .mise.toml (Renovate `mise` manager); used only by
 # `make renovate-validate`.
