@@ -1,4 +1,4 @@
-name: ci
+name: CI
 
 on:
   push:
@@ -15,15 +15,43 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    name: changes
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Filter changed paths
+        id: filter
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        with:
+          filters: |
+            code:
+              - '**'
+              - '!**/*.md'
+              - '!LICENSE'
+              - '!.gitignore'
+              - '!.dockerignore'
+
   docker-image-test:
 
     runs-on: ubuntu-24.04
     name: docker-image-test
+    needs: [changes]
+    if: ${{ needs.changes.outputs.code == 'true' || github.ref_type == 'tag' }}
     timeout-minutes: 30
 
     steps:
 
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
@@ -49,10 +77,11 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
 
     steps:
 
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
@@ -65,18 +94,18 @@ jobs:
 
       - name: Convert owner to lower case
         run: |
-          echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
+          echo "OWNER_LC=${OWNER,,}" >> "${GITHUB_ENV}"
         env:
           OWNER: '${{ github.repository_owner }}'
 
-      - name: Login to image repository
+      - name: Log in to GHCR
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker builder meta
+      - name: Docker metadata
         id: meta_builder
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
         with:
@@ -106,10 +135,19 @@ jobs:
           platforms: linux/amd64
           push: true
           provenance: false
+          sbom: false
           tags: ${{ steps.meta_builder.outputs.tags }}
           labels: ${{ steps.meta_builder.outputs.labels }}
           cache-from: type=gha,scope=builder
           cache-to: type=gha,mode=max,scope=builder
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign builder image (keyless)
+        env:
+          DIGEST: ${{ steps.docker_builder.outputs.digest }}
+        run: cosign sign --yes "ghcr.io/${OWNER_LC}/quadmath-cross@${DIGEST}"
 
       - name: Output docker_builder image digest
         env:
@@ -128,10 +166,11 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
 
     steps:
 
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
@@ -144,18 +183,18 @@ jobs:
 
       - name: Convert owner to lower case
         run: |
-          echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
+          echo "OWNER_LC=${OWNER,,}" >> "${GITHUB_ENV}"
         env:
           OWNER: '${{ github.repository_owner }}'
 
-      - name: Login to image repository
+      - name: Log in to GHCR
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker runtime meta
+      - name: Docker metadata
         id: meta_runtime
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
         with:
@@ -176,6 +215,40 @@ jobs:
             io.artifacthub.package.maintainers=[{"name":"Andriy Kalashnykov","email":"andriykalashnykov@gmail.com"}]
             io.artifacthub.package.license=MIT
 
+      # Build the amd64 runtime locally first so it can be scanned and smoke
+      # tested before any multi-arch push to the registry.
+      - name: Build runtime image (amd64, for scan and smoke test)
+        id: build_local
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
+        with:
+          context: .
+          file: ./Dockerfile.runtime
+          platforms: linux/amd64
+          load: true
+          push: false
+          provenance: false
+          sbom: false
+          build-args: |
+            BUILDER_IMAGE=ghcr.io/${{ env.OWNER_LC }}/quadmath-cross:${{ github.ref_name }}-builder
+          tags: ghcr.io/${{ env.OWNER_LC }}/quadmath-cross:runtime-scan
+          cache-from: type=gha,scope=runtime
+          cache-to: type=gha,mode=max,scope=runtime
+
+      - name: Trivy image scan (CRITICAL/HIGH blocking)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ env.OWNER_LC }}/quadmath-cross:runtime-scan
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Smoke test runtime image
+        run: |
+          out="$(docker run --rm "ghcr.io/${OWNER_LC}/quadmath-cross:runtime-scan" /app/qm-x86_64)"
+          echo "$out"
+          echo "$out" | grep -q '1.41421356237309504880' \
+            || { echo "Smoke test failed: qm-x86_64 did not print sqrt(2)."; exit 1; }
+
       - name: Build and push runtime
         id: docker_runtime
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
@@ -185,12 +258,40 @@ jobs:
           platforms: linux/arm64,linux/amd64
           push: true
           provenance: false
+          sbom: false
+          build-args: |
+            BUILDER_IMAGE=ghcr.io/${{ env.OWNER_LC }}/quadmath-cross:${{ github.ref_name }}-builder
           tags: ${{ steps.meta_runtime.outputs.tags }}
           labels: ${{ steps.meta_runtime.outputs.labels }}
           cache-from: type=gha,scope=runtime
           cache-to: type=gha,mode=max,scope=runtime
 
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign runtime image (keyless)
+        env:
+          DIGEST: ${{ steps.docker_runtime.outputs.digest }}
+        run: cosign sign --yes "ghcr.io/${OWNER_LC}/quadmath-cross@${DIGEST}"
+
       - name: Output docker_runtime image digest
         env:
           DIGEST: ${{ steps.docker_runtime.outputs.digest }}
         run: echo "$DIGEST"
+
+  ci-pass:
+    if: always()
+    runs-on: ubuntu-24.04
+    name: ci-pass
+    needs: [ changes, docker-image-test ]
+    timeout-minutes: 5
+    steps:
+      - name: Verify required jobs succeeded
+        run: |
+          echo "changes=${{ needs.changes.result }} docker-image-test=${{ needs.docker-image-test.result }}"
+          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ] \
+             || [ "${{ contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "A required job failed or was cancelled."
+            exit 1
+          fi
+          echo "All required jobs passed or were skipped."

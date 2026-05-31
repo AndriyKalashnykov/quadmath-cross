@@ -10,11 +10,17 @@
   "labels": [
     "dependencies"
   ],
+  "enabledManagers": [
+    "github-actions",
+    "dockerfile",
+    "mise",
+    "custom.regex"
+  ],
   "prConcurrentLimit": 50,
   "prHourlyLimit": 0,
   "platformAutomerge": true,
   "automerge": true,
-  "automergeType": "branch",
+  "automergeType": "pr",
   "automergeStrategy": "squash",
   "ignoreTests": false,
   "lockFileMaintenance": {
@@ -53,24 +59,14 @@
     },
     {
       "customType": "regex",
-      "description": "Track nvm version in Makefile",
+      "description": "Track trivy version in Makefile",
       "managerFilePatterns": ["/^Makefile$/"],
       "matchStrings": [
-        "NVM_VERSION\\s*:=\\s*(?<currentValue>.*?)\\n"
+        "TRIVY_VERSION\\s*:=\\s*(?<currentValue>.*?)\\n"
       ],
-      "depNameTemplate": "nvm-sh/nvm",
+      "depNameTemplate": "aquasecurity/trivy",
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^v(?<version>.*)$"
-    },
-    {
-      "customType": "regex",
-      "description": "Track Node.js major version in Makefile",
-      "managerFilePatterns": ["/^Makefile$/"],
-      "matchStrings": [
-        "NODE_VERSION\\s*:=\\s*(?<currentValue>\\d+)\\n"
-      ],
-      "depNameTemplate": "node",
-      "datasourceTemplate": "node-version"
     },
     {
       "customType": "regex",

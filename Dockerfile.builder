@@ -61,5 +61,18 @@ RUN x86_64-linux-gnu-g++ -Wall -std=gnu++14 -fexceptions -fext-numeric-literals 
     -c float128_example.cpp -o float128.o
 RUN x86_64-linux-gnu-g++ -static -o float128-x86_64 float128.o -lquadmath
 
+# Behavioral verification — run every compiled binary and assert its output.
+# amd64 binaries run natively; the arm64 binary runs under qemu-aarch64-static
+# (from qemu-user-static, installed above) with no binfmt registration needed
+# because every binary is statically linked. A broken or incorrect artifact
+# fails the image build here, not at first runtime use. Output is redirected to
+# files (no pipes) so the assertions are hadolint DL4006-clean.
+RUN set -eux; \
+    ./hello-x86_64                    > /tmp/hello-x86_64.out  && grep -q 'Total Number of args:'      /tmp/hello-x86_64.out;  \
+    qemu-aarch64-static ./hello-arm64 > /tmp/hello-arm64.out   && grep -q 'Total Number of args:'      /tmp/hello-arm64.out;   \
+    ./qm-x86_64                       > /tmp/qm-x86_64.out      && grep -q '1.41421356237309504880'     /tmp/qm-x86_64.out;     \
+    ./float128-x86_64                 > /tmp/float128-x86_64.out && grep -q 'boost::float128_t is available' /tmp/float128-x86_64.out; \
+    rm -f /tmp/hello-x86_64.out /tmp/hello-arm64.out /tmp/qm-x86_64.out /tmp/float128-x86_64.out
+
 # Keep the container running
 CMD ["tail", "-f", "/dev/null"]
