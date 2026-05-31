@@ -102,7 +102,7 @@ Because the builder reference is a build-arg derived from the release tag, there
 
 ## Upgrade Backlog
 
-- [ ] `ARG GCC_VERSION=14` in Dockerfile.builder is not tracked by Renovate — manually update when Ubuntu Noble ships GCC 15 (verified 2026-04-03: gcc-15 not yet in Noble repos)
+- [ ] `ARG GCC_VERSION=14` in Dockerfile.builder is not tracked by Renovate — manually update when Ubuntu Noble ships GCC 15 (re-verified 2026-05-30: gcc-15 still not in Noble repos; gcc-14 `14.2.0` is the candidate, no `gcc-15-aarch64-linux-gnu`)
 
 ## Skills
 
