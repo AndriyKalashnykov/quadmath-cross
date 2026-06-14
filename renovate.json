@@ -18,7 +18,7 @@
   ],
   "prConcurrentLimit": 50,
   "prHourlyLimit": 0,
-  "platformAutomerge": true,
+  "platformAutomerge": false,
   "automerge": true,
   "automergeType": "pr",
   "automergeStrategy": "squash",
@@ -37,46 +37,14 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Track hadolint version in Makefile",
-      "managerFilePatterns": ["/^Makefile$/"],
-      "matchStrings": [
-        "HADOLINT_VERSION\\s*:=\\s*(?<currentValue>.*?)\\n"
-      ],
-      "depNameTemplate": "hadolint/hadolint",
-      "datasourceTemplate": "github-releases",
-      "extractVersionTemplate": "^v(?<version>.*)$"
-    },
-    {
-      "customType": "regex",
-      "description": "Track act version in Makefile",
-      "managerFilePatterns": ["/^Makefile$/"],
-      "matchStrings": [
-        "ACT_VERSION\\s*:=\\s*(?<currentValue>.*?)\\n"
-      ],
-      "depNameTemplate": "nektos/act",
-      "datasourceTemplate": "github-releases",
-      "extractVersionTemplate": "^v(?<version>.*)$"
-    },
-    {
-      "customType": "regex",
-      "description": "Track trivy version in Makefile",
-      "managerFilePatterns": ["/^Makefile$/"],
-      "matchStrings": [
-        "TRIVY_VERSION\\s*:=\\s*(?<currentValue>.*?)\\n"
-      ],
-      "depNameTemplate": "aquasecurity/trivy",
-      "datasourceTemplate": "github-releases",
-      "extractVersionTemplate": "^v(?<version>.*)$"
-    },
-    {
-      "customType": "regex",
       "description": "Track tonistiigi/binfmt image version in Makefile",
       "managerFilePatterns": ["/^Makefile$/"],
       "matchStrings": [
         "tonistiigi/binfmt:(?<currentValue>[^\\s]+)"
       ],
       "depNameTemplate": "tonistiigi/binfmt",
-      "datasourceTemplate": "docker"
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "regex:^qemu-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$"
     }
   ],
   "packageRules": [
@@ -102,11 +70,31 @@
       "groupName": "Docker dependencies"
     },
     {
-      "description": "Group Makefile tool versions into one PR",
+      "description": "Group mise-managed CLI tools (hadolint, act, trivy, node) and hold each new version 3 days so the aqua:/github-tags backend's upstream GitHub Release assets are published before the bump PR opens (prevents the tag-before-publish 404 on mise install).",
+      "matchManagers": [
+        "mise"
+      ],
+      "groupName": "mise tools",
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "binfmt is tracked as an image TAG (qemu-vX), not a pullable image ref, so config:best-practices' docker:pinDigests cannot pin a digest onto it — it errors the Pin-dependencies branch on every run. Disable digest pinning for this dep only.",
       "matchManagers": [
         "custom.regex"
       ],
-      "groupName": "Makefile tool versions"
+      "matchDatasources": [
+        "docker"
+      ],
+      "groupName": "binfmt",
+      "pinDigests": false
+    },
+    {
+      "description": "Ignore the project's own builder image — the BUILDER_IMAGE ARG defaults in Dockerfile.runtime/.runtime.local are self-references resolved at build time from the local/CI build, not external deps. Renovate logs 'no-result' lookups for them otherwise.",
+      "matchDepNames": [
+        "ghcr.io/andriykalashnykov/quadmath-cross",
+        "docker.io/andriykalashnykov/quadmath-cross"
+      ],
+      "enabled": false
     }
   ]
 }

@@ -24,7 +24,7 @@ publishing to **GitHub Container Registry**.
 | Runtime base | Alpine 3.23, digest-pinned |
 | Static analysis | cppcheck (sources), hadolint (Dockerfiles), Trivy (filesystem + image) |
 | Supply chain | cosign keyless signing (Sigstore), GitHub Actions, GHCR |
-| Tooling | GNU Make, mise (Node.js for Renovate), act |
+| Tooling | GNU Make, mise (pins hadolint, act, trivy, Node.js) |
 | Dependency updates | Renovate |
 
 ## Quick Start
@@ -43,12 +43,12 @@ make ci            # full local pipeline: lint + scan + build + binary smoke tes
 | [GNU Make](https://www.gnu.org/software/make/) | 3.81+ | Build orchestration |
 | [Docker](https://www.docker.com/) | latest | Container builds with Buildx |
 | [Git](https://git-scm.com/) | 2.0+ | Version control and tagging |
-| [hadolint](https://github.com/hadolint/hadolint) | 2.14.0 | Dockerfile linting (auto-installed by `make lint`) |
-| [Trivy](https://trivy.dev/) | 0.70.0 | Filesystem CVE/secret scanning (auto-installed by `make trivy-fs`) |
-| [act](https://github.com/nektos/act) | 0.2.88 | Run GitHub Actions locally (auto-installed by `make ci-run`) |
-| [mise](https://mise.jdx.dev/) | latest | Provides Node.js (`.mise.toml`) for `make renovate-validate` (auto-installed) |
+| [mise](https://mise.jdx.dev/) | latest | Manages all CLI tool versions from `.mise.toml` (auto-installed by `make deps-tools`) |
+| [hadolint](https://github.com/hadolint/hadolint) | 2.14.0 | Dockerfile linting (via mise; used by `make lint`) |
+| [Trivy](https://trivy.dev/) | 0.71.0 | Filesystem CVE/secret scanning (via mise; used by `make trivy-fs`) |
+| [act](https://github.com/nektos/act) | 0.2.89 | Run GitHub Actions locally (via mise; used by `make ci-run`) |
 
-Auto-installed tools land in `~/.local/bin` (no `sudo`); make sure it is on your `PATH`.
+Tool versions are pinned in `.mise.toml` (single source of truth, Renovate-tracked) and installed by `make deps-tools` via mise — no `sudo` required. `make lint`, `make trivy-fs`, and `make ci-run` auto-run `deps-tools` on first use.
 
 ## Architecture
 
@@ -59,9 +59,10 @@ Auto-installed tools land in `~/.local/bin` (no `sudo`); make sure it is on your
    gfortran, LAPACK/BLAS/ATLAS, Boost). It runs **cppcheck** on the project's own
    sources, then compiles every C/C++ source into a statically-linked binary.
 2. **Runtime image** (`Dockerfile.runtime` for CI, `Dockerfile.runtime.local` for
-   `make build`) — Alpine carrying **only** the compiled binaries. The builder image
-   reference is a build-arg (`BUILDER_IMAGE`), so CI pulls the exact `<tag>-builder`
-   image for the release being built — no manual version bumping.
+   `make build`) — Alpine carrying **only** the compiled binaries, running as a
+   non-root user (UID 10001). The builder image reference is a build-arg
+   (`BUILDER_IMAGE`), so CI pulls the exact `<tag>-builder` image for the release
+   being built — no manual version bumping.
 
 ### Binary verification
 
@@ -132,10 +133,7 @@ Run `make help` to see all available targets.
 |--------|-------------|
 | `make deps` | Check required system dependencies (Docker, Git) |
 | `make clean` | Remove build artifacts |
-| `make deps-hadolint` | Install [hadolint](https://github.com/hadolint/hadolint) |
-| `make deps-act` | Install [act](https://github.com/nektos/act) |
-| `make deps-trivy` | Install [Trivy](https://trivy.dev/) |
-| `make renovate-bootstrap` | Install [mise](https://mise.jdx.dev/) and the Node.js toolchain (`.mise.toml`) |
+| `make deps-tools` | Install pinned CLI tools (hadolint, act, trivy, Node.js) via [mise](https://mise.jdx.dev/) from `.mise.toml` |
 
 ### Utilities
 

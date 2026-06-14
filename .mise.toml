@@ -1,5 +1,12 @@
 # mise — cross-language tool versions (https://mise.jdx.dev).
-# Node.js is required only by `make renovate-validate` (runs `npx renovate`).
-# Tracked by Renovate's `mise` manager.
+# Single source of truth for every pinned CLI tool, tracked natively by
+# Renovate's `mise` manager (no inline `# renovate:` comments needed).
+#   - node:     used by `make renovate-validate` (runs `npx renovate`).
+#   - hadolint: Dockerfile linting (`make lint`).
+#   - act:      run GitHub Actions locally (`make ci-run`).
+#   - trivy:    filesystem vulnerability/secret scanning (`make trivy-fs`).
 [tools]
 node = "24"
+"aqua:hadolint/hadolint" = "2.14.0"
+"aqua:nektos/act" = "0.2.89"
+"aqua:aquasecurity/trivy" = "0.71.0"

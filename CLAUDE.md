@@ -13,6 +13,7 @@ All builds are Docker-based. There is no local compilation pipeline outside of D
 ```bash
 make help              # List all targets
 make deps              # Check required system dependencies (docker, git)
+make deps-tools        # Install pinned CLI tools (hadolint, act, trivy, node) via mise
 make build             # Build amd64 builder image, then local runtime image (the main build)
 make image-run         # Run arm64 runtime image interactively
 make image-prune       # Docker system prune + buildx prune
@@ -43,7 +44,7 @@ make renovate-validate # Validate Renovate configuration
    - Compiles all C/C++ sources into statically-linked binaries at build time
    - **Behavioral verification**: after compilation, every binary is executed and its output asserted (arm64 via `qemu-aarch64-static`, no binfmt needed since binaries are static). A broken artifact fails the image build. `make smoke` repeats these assertions against the built images and is folded into `make ci`.
 
-2. **Runtime image** (`Dockerfile.runtime` / `Dockerfile.runtime.local`) - Alpine with only the compiled binaries. Both take an `ARG BUILDER_IMAGE` so the builder reference is supplied at build time:
+2. **Runtime image** (`Dockerfile.runtime` / `Dockerfile.runtime.local`) - Alpine with only the compiled binaries, running as a non-root user (UID 10001). Both take an `ARG BUILDER_IMAGE` so the builder reference is supplied at build time:
    - `Dockerfile.runtime` (CI): the `docker-image-runtime` job passes `BUILDER_IMAGE=ghcr.io/<owner>/quadmath-cross:${tag}-builder`, so the runtime always pulls the exact builder for the release being built.
    - `Dockerfile.runtime.local` (`make build`): `make build` passes the just-built local `docker.io/$(DOCKER_ORG)/quadmath-cross:<tag>-builder`.
    - The `ARG` default in each file is only a fallback for a bare `docker build` without `--build-arg`.
@@ -77,7 +78,7 @@ Because the builder reference is a build-arg derived from the release tag, there
 
 ### Main workflow: `.github/workflows/ci.yml`
 
-- **`changes`** (all events): `dorny/paths-filter` skips the build on docs-only changes (`*.md`, `LICENSE`).
+- **`changes`** (all events): `dorny/paths-filter` skips the build on docs-only changes (`*.md` except `CLAUDE.md`, `LICENSE`, `.gitignore`, `.dockerignore`). `CLAUDE.md` is re-included as code (it's project config, not docs).
 - **On push/PR/workflow_call**: `docker-image-test` runs `make ci` (hadolint + Trivy filesystem scan + builder/runtime build) — gated on `changes` (or any tag).
 - **On tag push (v*)**: three jobs run in sequence after `docker-image-test`:
   1. `docker-image-builder` — builds + pushes the amd64 builder image to ghcr.io, then cosign-signs it (`id-token: write`).
@@ -97,12 +98,12 @@ Because the builder reference is a build-arg derived from the release tag, there
 - GCC version is parameterized via `ARG GCC_VERSION=14` in Dockerfile.builder
 - All C binaries are statically linked (`-static`) for portability across architectures
 - Renovate manages dependency updates with PR automerge (squash) enabled
-- **Version manager**: mise (`.mise.toml`) provides Node.js (used only by `make renovate-validate`); auto-installed tools (hadolint, act, trivy) live in `~/.local/bin` (no sudo), which the Makefile adds to `PATH`
+- **Version manager**: mise (`.mise.toml`) is the single source of truth for every pinned CLI tool — Node.js (for `make renovate-validate`), hadolint (`make lint`), trivy (`make trivy-fs`), and act (`make ci-run`), all via aqua backends and tracked by Renovate's native `mise` manager. `make deps-tools` runs `mise install`; mise's shims dir is on the Makefile's `PATH`. CI installs them via `jdx/mise-action`. The only Makefile-pinned image is the binfmt installer (consumed via `docker run`, tracked by a renovate.json customManager)
 - **Boost** is consumed header-only via apt (`libboost-dev`); `float128_example.cpp` is a frozen third-party Boost.Math example, so no Boost version bump is needed unless new Boost features are required
 
 ## Upgrade Backlog
 
-- [ ] `ARG GCC_VERSION=14` in Dockerfile.builder is not tracked by Renovate — manually update when Ubuntu Noble ships GCC 15 (re-verified 2026-05-30: gcc-15 still not in Noble repos; gcc-14 `14.2.0` is the candidate, no `gcc-15-aarch64-linux-gnu`)
+- [ ] `ARG GCC_VERSION=14` in Dockerfile.builder is not tracked by Renovate — manually update when Ubuntu Noble ships GCC 15 (re-verified 2026-06-14: gcc-15 still not in Noble repos; gcc-14 `14.2.0` is the candidate, no `gcc-15-aarch64-linux-gnu`)
 
 ## Skills
 
