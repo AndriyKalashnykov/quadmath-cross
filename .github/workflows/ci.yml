@@ -27,12 +27,17 @@ jobs:
     steps:
 
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Filter changed paths
         id: filter
         uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         with:
+          # `base` is required so `make ci-run` (act push) works: act's synthetic
+          # event payload omits repository.default_branch, which paths-filter
+          # falls back to. On pull_request events the action uses the PR base and
+          # ignores this input, so gate it to push events only.
+          base: ${{ github.event_name == 'push' && 'main' || '' }}
           # 'every': a file counts as `code` only if it matches '**' AND none of
           # the '!' exclusions. The default ('some') matches a file if it matches
           # ANY pattern, so the '**' catch-all always wins and the exclusions are
@@ -41,7 +46,9 @@ jobs:
           filters: |
             code:
               - '**'
-              - '!**/*.md'
+              # Exclude every .md EXCEPT CLAUDE.md — CLAUDE.md is project config,
+              # not documentation, so a change to it must trigger the build.
+              - '!**/!(CLAUDE).md'
               - '!LICENSE'
               - '!.gitignore'
               - '!.dockerignore'
@@ -57,9 +64,15 @@ jobs:
     steps:
 
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           fetch-depth: 0
+
+      - name: Set up tools (mise)
+        uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4
+        with:
+          install: true
+          cache: true
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4
@@ -87,7 +100,7 @@ jobs:
     steps:
 
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           fetch-depth: 0
 
@@ -176,7 +189,7 @@ jobs:
     steps:
 
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           fetch-depth: 0
 
@@ -243,6 +256,7 @@ jobs:
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ghcr.io/${{ env.OWNER_LC }}/quadmath-cross:runtime-scan
+          scanners: vuln,secret
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: '1'
@@ -288,7 +302,10 @@ jobs:
     if: always()
     runs-on: ubuntu-24.04
     name: ci-pass
-    needs: [ changes, docker-image-test ]
+    # List ALL upstream jobs (including the tag-only publish jobs) so a failed
+    # release is visible on the commit status. Skipped jobs (builder/runtime on
+    # non-tag pushes) count as success, not failure, so this stays green on PRs.
+    needs: [ changes, docker-image-test, docker-image-builder, docker-image-runtime ]
     timeout-minutes: 5
     steps:
       - name: Verify required jobs succeeded

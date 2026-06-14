@@ -1,20 +1,21 @@
 .DEFAULT_GOAL := help
 
-# Tools installed by the deps-* targets land in ~/.local/bin (no sudo). Export
-# it so a recipe that just installed a tool can immediately invoke it, and so
-# `make ci-run` (act) finds the same binaries.
-export PATH := $(HOME)/.local/bin:$(PATH)
+# CLI tools (hadolint, act, trivy, node) are installed by mise into its shims
+# dir; mise's auto-activation does not run inside Make's $(SHELL) -c sub-shells,
+# so put the shims dir on PATH explicitly. ~/.local/bin stays for mise itself
+# (bootstrapped via https://mise.run) and any hand-installed binary.
+export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:$(PATH)
 
 APP_NAME       := quadmath-cross
 CURRENTTAG     := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
 NEWTAG         ?= $(shell bash -c 'read -p "Please provide a new tag (current tag - $(CURRENTTAG)): " newtag; echo $$newtag')
 
-# === Tool Versions (pinned; tracked by renovate.json customManagers) ===
-HADOLINT_VERSION := 2.14.0
-ACT_VERSION      := 0.2.88
-TRIVY_VERSION    := 0.70.0
-# Node.js is pinned in .mise.toml (Renovate `mise` manager); used only by
-# `make renovate-validate`.
+# === Tool Versions ===
+# hadolint, act, trivy, and node are pinned in .mise.toml (single source of
+# truth, tracked by Renovate's native `mise` manager) and installed by
+# `make deps-tools`. The only image pinned here is the binfmt installer used by
+# `setup-binfmt` (consumed via `docker run`, so it stays a Makefile reference
+# tracked by a renovate.json customManager).
 
 # === Docker Image Settings ===
 DOCKER_REGISTRY  ?= docker.io
@@ -69,13 +70,13 @@ setup-binfmt: deps
 	@echo "binfmt setup complete. Test with: docker run -it --rm --platform linux/arm64 arm64v8/ubuntu sh"
 
 #lint: @ Lint all Dockerfiles with hadolint
-lint: deps-hadolint
+lint: deps-tools
 	@hadolint Dockerfile.builder
 	@hadolint Dockerfile.runtime
 	@hadolint Dockerfile.runtime.local
 
 #trivy-fs: @ Scan the repository for vulnerabilities and secrets with trivy
-trivy-fs: deps-trivy
+trivy-fs: deps-tools
 	@trivy fs --scanners vuln,secret --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 .
 
 #smoke: @ Run every compiled binary and assert its output (incl. arm64 under QEMU)
@@ -118,46 +119,30 @@ tag-delete:
 		git push --delete origin $$tag && \
 		git tag --delete $$tag'
 
-#deps-hadolint: @ Install hadolint for Dockerfile linting
-deps-hadolint:
-	@command -v hadolint >/dev/null 2>&1 || { echo "Installing hadolint $(HADOLINT_VERSION)..."; \
-		mkdir -p $$HOME/.local/bin && \
-		curl -sSfL -o /tmp/hadolint https://github.com/hadolint/hadolint/releases/download/v$(HADOLINT_VERSION)/hadolint-Linux-x86_64 && \
-		install -m 755 /tmp/hadolint $$HOME/.local/bin/hadolint && \
-		rm -f /tmp/hadolint; \
-	}
-
-#deps-act: @ Install act for running GitHub Actions locally
-deps-act:
-	@command -v act >/dev/null 2>&1 || { echo "Installing act $(ACT_VERSION)..."; \
-		mkdir -p $$HOME/.local/bin && \
-		curl -sSfL https://raw.githubusercontent.com/nektos/act/v$(ACT_VERSION)/install.sh | bash -s -- -b $$HOME/.local/bin v$(ACT_VERSION); \
-	}
-
-#deps-trivy: @ Install trivy for filesystem vulnerability and secret scanning
-deps-trivy:
-	@command -v trivy >/dev/null 2>&1 || { echo "Installing trivy $(TRIVY_VERSION)..."; \
-		mkdir -p $$HOME/.local/bin && \
-		curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b $$HOME/.local/bin v$(TRIVY_VERSION); \
-	}
+#deps-tools: @ Install pinned CLI tools (hadolint, act, trivy, node) via mise
+deps-tools:
+	@if ! command -v mise >/dev/null 2>&1; then \
+		if [ -z "$$CI" ]; then \
+			echo "Installing mise (no root; installs to ~/.local/bin)..."; \
+			curl -fsSL https://mise.run | sh; \
+		else \
+			echo "Error: mise required in CI (use jdx/mise-action)."; exit 1; \
+		fi; \
+	fi
+	@mise install --yes
 
 #ci-run: @ Run GitHub Actions workflow locally using act
-ci-run: deps-act
-	@act push --container-architecture linux/amd64 \
-		--artifact-server-path /tmp/act-artifacts
-
-#renovate-bootstrap: @ Install mise and the Node.js toolchain (.mise.toml) for Renovate
-renovate-bootstrap:
-	@command -v mise >/dev/null 2>&1 || { echo "Installing mise..."; \
-		curl -fsSL https://mise.run | sh; \
-	}
-	@mise install
+ci-run: deps-tools
+	@docker container prune -f 2>/dev/null || true
+	@ACT_PORT=$$(shuf -i 40000-59999 -n 1); \
+	act push --container-architecture linux/amd64 \
+		--artifact-server-port "$$ACT_PORT" \
+		--artifact-server-path "$$(mktemp -d -t act-artifacts.XXXXXX)"
 
 #renovate-validate: @ Validate Renovate configuration
-renovate-validate: renovate-bootstrap
+renovate-validate: deps-tools
 	@mise exec -- npx --yes renovate@latest --platform=local
 
-.PHONY: help version clean deps build image-run image-prune cross-compile setup-binfmt \
+.PHONY: help version clean deps deps-tools build image-run image-prune cross-compile setup-binfmt \
 	lint trivy-fs smoke ci release tag-delete \
-	deps-hadolint deps-act deps-trivy ci-run \
-	renovate-bootstrap renovate-validate
+	ci-run renovate-validate
